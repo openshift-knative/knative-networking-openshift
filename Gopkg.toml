@@ -1,0 +1,6 @@
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+
+[[override]]
+  name = "knative.dev/serving"
+  branch = "master"
