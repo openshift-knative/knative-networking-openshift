@@ -14,7 +14,7 @@ Makes **v0.9.0-1.1.0-01**
 
 ## Building and releasing a new image
 
-To build a new image, use the `hack/build_image.sh` script. It wraps `go build` and `operator-sdk build` in a way that makes it look like an image build via operator-sdk. Push the image via `docker push` to quay.io to "release" it.
+To build a new image, use the `hack/build_image.sh` script. It wraps `go build` and `docker build` in a way that makes it look like an image build via operator-sdk. Push the image via `docker push` to quay.io to "release" it.
 
 ```bash
 $ ./hack/build-image quay.io/openshift-knative/knative-networking-openshift:v0.9.0-1.1.0-01
