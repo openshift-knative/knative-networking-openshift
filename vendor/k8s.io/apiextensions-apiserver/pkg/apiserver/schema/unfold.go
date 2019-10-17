@@ -35,16 +35,13 @@ func (s *Structural) Unfold() *Structural {
 				return false
 			}
 
-			if s.ValueValidation == nil {
-				s.ValueValidation = &ValueValidation{}
-			}
-			if s.ValueValidation.AnyOf == nil {
-				s.ValueValidation.AnyOf = []NestedValueValidation{
+			if s.AnyOf == nil {
+				s.AnyOf = []NestedValueValidation{
 					{ForbiddenGenerics: Generic{Type: "integer"}},
 					{ForbiddenGenerics: Generic{Type: "string"}},
 				}
 			} else {
-				s.ValueValidation.AllOf = append([]NestedValueValidation{
+				s.AllOf = append([]NestedValueValidation{
 					{
 						ValueValidation: ValueValidation{
 							AnyOf: []NestedValueValidation{
@@ -53,7 +50,7 @@ func (s *Structural) Unfold() *Structural {
 							},
 						},
 					},
-				}, s.ValueValidation.AllOf...)
+				}, s.AllOf...)
 			}
 
 			return true

@@ -139,20 +139,6 @@ func TestValidate(t *testing.T) {
 			required("nested", "embedded", "apiVersion"),
 			required("nested", "embedded", "kind"),
 		}},
-		{name: "items", object: `
-{
-  "items": [{}]
-}`, errors: []validationMatch{
-			required("items[0]", "apiVersion"),
-			required("items[0]", "kind"),
-		}},
-		{name: "additionalProperties", object: `
-{
-  "additionalProperties": {"foo":{}}
-}`, errors: []validationMatch{
-			required("additionalProperties[foo]", "apiVersion"),
-			required("additionalProperties[foo]", "kind"),
-		}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -163,20 +149,6 @@ func TestValidate(t *testing.T) {
 						Extensions: structuralschema.Extensions{XEmbeddedResource: true},
 						Properties: map[string]structuralschema.Structural{
 							"embedded": {Extensions: structuralschema.Extensions{XEmbeddedResource: true}},
-						},
-					},
-					"items": {
-						Items: &structuralschema.Structural{
-							Extensions: structuralschema.Extensions{XEmbeddedResource: true},
-						},
-					},
-					"additionalProperties": {
-						Generic: structuralschema.Generic{
-							AdditionalProperties: &structuralschema.StructuralOrBool{
-								Structural: &structuralschema.Structural{
-									Extensions: structuralschema.Extensions{XEmbeddedResource: true},
-								},
-							},
 						},
 					},
 				},
@@ -224,6 +196,18 @@ func required(path ...string) validationMatch {
 }
 func invalid(path ...string) validationMatch {
 	return validationMatch{path: field.NewPath(path[0], path[1:]...), errorType: field.ErrorTypeInvalid}
+}
+func invalidIndex(index int, path ...string) validationMatch {
+	return validationMatch{path: field.NewPath(path[0], path[1:]...).Index(index), errorType: field.ErrorTypeInvalid}
+}
+func unsupported(path ...string) validationMatch {
+	return validationMatch{path: field.NewPath(path[0], path[1:]...), errorType: field.ErrorTypeNotSupported}
+}
+func immutable(path ...string) validationMatch {
+	return validationMatch{path: field.NewPath(path[0], path[1:]...), errorType: field.ErrorTypeInvalid}
+}
+func forbidden(path ...string) validationMatch {
+	return validationMatch{path: field.NewPath(path[0], path[1:]...), errorType: field.ErrorTypeForbidden}
 }
 
 func (v validationMatch) matches(err *field.Error) bool {

@@ -321,9 +321,9 @@ func TestCustomResourceValidationErrors(t *testing.T) {
 		ns := "not-the-default"
 
 		tests := []struct {
-			name           string
-			instanceFn     func() *unstructured.Unstructured
-			expectedErrors []string
+			name          string
+			instanceFn    func() *unstructured.Unstructured
+			expectedError string
 		}{
 			{
 				name: "bad alpha",
@@ -332,7 +332,7 @@ func TestCustomResourceValidationErrors(t *testing.T) {
 					instance.Object["alpha"] = "foo_123!"
 					return instance
 				},
-				expectedErrors: []string{"alpha in body should match '^[a-zA-Z0-9_]*$'"},
+				expectedError: "alpha in body should match '^[a-zA-Z0-9_]*$'",
 			},
 			{
 				name: "bad beta",
@@ -341,7 +341,7 @@ func TestCustomResourceValidationErrors(t *testing.T) {
 					instance.Object["beta"] = 5
 					return instance
 				},
-				expectedErrors: []string{"beta in body should be greater than or equal to 10"},
+				expectedError: "beta in body should be greater than or equal to 10",
 			},
 			{
 				name: "bad gamma",
@@ -350,7 +350,7 @@ func TestCustomResourceValidationErrors(t *testing.T) {
 					instance.Object["gamma"] = "qux"
 					return instance
 				},
-				expectedErrors: []string{`gamma: Unsupported value: "qux": supported values: "foo", "bar", "baz"`},
+				expectedError: "gamma in body should be one of [foo bar baz]",
 			},
 			{
 				name: "bad delta",
@@ -359,10 +359,7 @@ func TestCustomResourceValidationErrors(t *testing.T) {
 					instance.Object["delta"] = "foobarbaz"
 					return instance
 				},
-				expectedErrors: []string{
-					"must validate at least one schema (anyOf)",
-					"delta in body should be at most 5 chars long",
-				},
+				expectedError: "must validate at least one schema (anyOf)\ndelta in body should be at most 5 chars long",
 			},
 			{
 				name: "absent alpha and beta",
@@ -380,7 +377,7 @@ func TestCustomResourceValidationErrors(t *testing.T) {
 					}
 					return instance
 				},
-				expectedErrors: []string{"alpha: Required value", "beta: Required value"},
+				expectedError: ".alpha in body is required\n.beta in body is required",
 			},
 		}
 
@@ -391,14 +388,13 @@ func TestCustomResourceValidationErrors(t *testing.T) {
 				instanceToCreate.Object["apiVersion"] = fmt.Sprintf("%s/%s", noxuDefinition.Spec.Group, v.Name)
 				_, err := noxuResourceClient.Create(instanceToCreate, metav1.CreateOptions{})
 				if err == nil {
-					t.Errorf("%v: expected %v", tc.name, tc.expectedErrors)
+					t.Errorf("%v: expected %v", tc.name, tc.expectedError)
 					continue
 				}
 				// this only works when status errors contain the expect kind and version, so this effectively tests serializations too
-				for _, expectedError := range tc.expectedErrors {
-					if !strings.Contains(err.Error(), expectedError) {
-						t.Errorf("%v: expected %v, got %v", tc.name, expectedError, err)
-					}
+				if !strings.Contains(err.Error(), tc.expectedError) {
+					t.Errorf("%v: expected %v, got %v", tc.name, tc.expectedError, err)
+					continue
 				}
 			}
 		}
@@ -548,9 +544,9 @@ func TestNonStructuralSchemaConditionUpdate(t *testing.T) {
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: foos.tests.example.com
+  name: foos.tests.apiextensions.k8s.io
 spec:
-  group: tests.example.com
+  group: tests.apiextensions.k8s.io
   version: v1beta1
   names:
     plural: foos
@@ -582,7 +578,8 @@ spec:
 
 	// create CRDs
 	t.Logf("Creating CRD %s", crd.Name)
-	if _, err = apiExtensionClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd); err != nil {
+	crd, err = apiExtensionClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+	if err != nil {
 		t.Fatalf("unexpected create error: %v", err)
 	}
 
@@ -612,7 +609,8 @@ spec:
 			t.Fatalf("unexpected get error: %v", err)
 		}
 		crd.Spec.Validation = nil
-		if _, err = apiExtensionClient.ApiextensionsV1beta1().CustomResourceDefinitions().Update(crd); apierrors.IsConflict(err) {
+		crd, err = apiExtensionClient.ApiextensionsV1beta1().CustomResourceDefinitions().Update(crd)
+		if apierrors.IsConflict(err) {
 			continue
 		}
 		if err != nil {
@@ -645,7 +643,8 @@ spec:
 			t.Fatalf("unexpected get error: %v", err)
 		}
 		crd.Spec.Validation = &apiextensionsv1beta1.CustomResourceValidation{OpenAPIV3Schema: origSchema}
-		if _, err = apiExtensionClient.ApiextensionsV1beta1().CustomResourceDefinitions().Update(crd); apierrors.IsConflict(err) {
+		crd, err = apiExtensionClient.ApiextensionsV1beta1().CustomResourceDefinitions().Update(crd)
+		if apierrors.IsConflict(err) {
 			continue
 		}
 		if err != nil {

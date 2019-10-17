@@ -29,11 +29,11 @@ import (
 
 func TestPrune(t *testing.T) {
 	tests := []struct {
-		name           string
-		json           string
-		isResourceRoot bool
-		schema         *structuralschema.Structural
-		expected       string
+		name                string
+		json                string
+		dontPruneMetaAtRoot bool
+		schema              *structuralschema.Structural
+		expected            string
 	}{
 		{name: "empty", json: "null", expected: "null"},
 		{name: "scalar", json: "4", schema: &structuralschema.Structural{}, expected: "4"},
@@ -85,13 +85,7 @@ func TestPrune(t *testing.T) {
      "pruning": {"unspecified": "bar"},
      "preserving": {"unspecified": "bar"}
   },
-  "preservingAdditionalPropertiesNotInheritingXPreserveUnknownFields": {
-     "foo": {
-        "specified": {"unspecified":"bar"},
-        "unspecified": "bar"
-     }
-  },
-  "preservingAdditionalPropertiesKeyPruneValues": {
+  "preservingAdditionalProperties": {
      "foo": {
         "specified": {"unspecified":"bar"},
         "unspecified": "bar"
@@ -129,22 +123,8 @@ func TestPrune(t *testing.T) {
 						},
 					},
 				},
-				"preservingAdditionalPropertiesNotInheritingXPreserveUnknownFields": {
-					// this x-kubernetes-preserve-unknown-fields is not inherited by the schema inside of additionalProperties
+				"preservingAdditionalProperties": {
 					Extensions: structuralschema.Extensions{XPreserveUnknownFields: true},
-					Generic: structuralschema.Generic{
-						Type: "object",
-						AdditionalProperties: &structuralschema.StructuralOrBool{
-							Structural: &structuralschema.Structural{
-								Generic: structuralschema.Generic{Type: "object"},
-								Properties: map[string]structuralschema.Structural{
-									"specified": {Generic: structuralschema.Generic{Type: "object"}},
-								},
-							},
-						},
-					},
-				},
-				"preservingAdditionalPropertiesKeyPruneValues": {
 					Generic: structuralschema.Generic{
 						Type: "object",
 						AdditionalProperties: &structuralschema.StructuralOrBool{
@@ -174,12 +154,7 @@ func TestPrune(t *testing.T) {
      "pruning": {},
      "preserving": {"unspecified": "bar"}
   },
-  "preservingAdditionalPropertiesNotInheritingXPreserveUnknownFields": {
-     "foo": {
-        "specified": {}
-     }
-  },
-  "preservingAdditionalPropertiesKeyPruneValues": {
+  "preservingAdditionalProperties": {
      "foo": {
         "specified": {}
      }
@@ -422,7 +397,7 @@ func TestPrune(t *testing.T) {
     }
   }
 }
-`, isResourceRoot: true, schema: &structuralschema.Structural{
+`, dontPruneMetaAtRoot: true, schema: &structuralschema.Structural{
 			Generic: structuralschema.Generic{Type: "object"},
 			Properties: map[string]structuralschema.Structural{
 				"pruned": {
@@ -533,7 +508,7 @@ func TestPrune(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			Prune(in, tt.schema, tt.isResourceRoot)
+			Prune(in, tt.schema, tt.dontPruneMetaAtRoot)
 			if !reflect.DeepEqual(in, expected) {
 				var buf bytes.Buffer
 				enc := json.NewEncoder(&buf)
@@ -636,7 +611,6 @@ func BenchmarkDeepCopy(b *testing.B) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		//lint:ignore SA4010 the result of append is never used, it's acceptable since in benchmark testing.
 		instances = append(instances, runtime.DeepCopyJSON(obj))
 	}
 }

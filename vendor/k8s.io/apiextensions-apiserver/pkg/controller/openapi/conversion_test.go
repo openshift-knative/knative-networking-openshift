@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v2
+package openapi
 
 import (
 	"encoding/json"
@@ -492,7 +492,7 @@ func Test_ConvertJSONSchemaPropsToOpenAPIv2SchemaByType(t *testing.T) {
 			expected: &spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					AdditionalProperties: &spec.SchemaOrBool{
-						Allows: true,
+						Allows: false,
 						Schema: spec.BooleanProperty(),
 					},
 				},
