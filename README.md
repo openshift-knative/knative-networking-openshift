@@ -7,16 +7,16 @@ This is an implementation of Knative's `Ingress` resource, specific to Openshift
 The versioning scheme consists of the Knative Serving the code should be compatible with, followed by the Openshift Serverless version it'll be shipped with and an increasing number. For example:
 
 - Knative Serving version: **v0.9.0**
-- Openshift Serverless version: **1.1.0**
+- Openshift Serverless version: **1.2.0**
 - Current build number: **01**
 
-Makes **v0.9.0-1.1.0-01**
+Makes **v0.9.0-1.2.0-01**
 
 ## Building and releasing a new image
 
 To build a new image, use the `hack/build_image.sh` script. It wraps `go build` and `docker build` in a way that makes it look like an image build via operator-sdk. Push the image via `docker push` to quay.io to "release" it.
 
 ```bash
-$ ./hack/build-image quay.io/openshift-knative/knative-networking-openshift:v0.9.0-1.1.0-01
-$ docker push quay.io/openshift-knative/knative-networking-openshift:v0.9.0-1.1.0-01
+$ ./hack/build-image quay.io/openshift-knative/knative-networking-openshift:v0.9.0-1.2.0-01
+$ docker push quay.io/openshift-knative/knative-networking-openshift:v0.9.0-1.2.0-01
 ```
