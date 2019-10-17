@@ -8,3 +8,6 @@ install: skip
 
 before_script: 
   - staticcheck ./...
+
+notifications:
+  email: false
