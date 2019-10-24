@@ -23,7 +23,7 @@ var (
 
 var (
 	GroupName     = SchemeGroupVersion.Group
-	GroupVersion  = schema.GroupVersion{Group: GroupName, Version: "v1"}
+	GroupVersion  = schema.GroupVersion{Group: GroupName, Version: SchemeGroupVersion.Version}
 	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes, corev1.AddToScheme)
 	// Install is a function which adds this version to a scheme
 	Install = schemeBuilder.AddToScheme
