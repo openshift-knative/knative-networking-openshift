@@ -14,13 +14,14 @@ func init() {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ServiceMeshMemberRoll is the Schema for the servicemeshmemberrolls API
+// +genclient
 // +k8s:openapi-gen=true
 type ServiceMeshMemberRoll struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ServiceMeshMemberRollSpec `json:"spec,omitempty"`
-	Status ServiceMeshMemberRollStatus     `json:"status,omitempty"`
+	Spec   ServiceMeshMemberRollSpec   `json:"spec,omitempty"`
+	Status ServiceMeshMemberRollStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -39,7 +40,8 @@ type ServiceMeshMemberRollSpec struct {
 
 // ServiceMeshMemberRollStatus contains the state last used to reconcile the list
 type ServiceMeshMemberRollStatus struct {
-	ObservedGeneration    int64 `json:"observedGeneration,omitempty"`
-	ServiceMeshGeneration int64 `json:"meshGeneration,omitempty"`
-	ConfiguredMembers []string `json:"configuredMembers,omitempty"`
+	ObservedGeneration           int64    `json:"observedGeneration,omitempty"`
+	ServiceMeshGeneration        int64    `json:"meshGeneration,omitempty"`
+	ServiceMeshReconciledVersion string   `json:"meshReconciledVersion,omitempty"`
+	ConfiguredMembers            []string `json:"configuredMembers,omitempty"`
 }

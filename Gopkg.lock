@@ -35,6 +35,14 @@
   version = "v0.12.5"
 
 [[projects]]
+  branch = "maistra-1.0"
+  digest = "1:6d1593e902d13417c78e4085a51665a3396a15ffeb9b584352d6309d0457e7ee"
+  name = "github.com/Maistra/istio-operator"
+  packages = ["pkg/apis/maistra/v1"]
+  pruneopts = "NUT"
+  revision = "ee1c52ef6e397c4307a0767a8c950e87e1d7a71f"
+
+[[projects]]
   digest = "1:aaedd60d32af2956305c3df30ebd504fde07aa1b407f68af81ee1bb2bb69e669"
   name = "github.com/aws/aws-sdk-go"
   packages = [
@@ -262,17 +270,6 @@
   version = "v1.1.7"
 
 [[projects]]
-  branch = "maistra-1.1"
-  digest = "1:da49fe0a4a3271dc087727a1cbd020d995496d7ece8706a3712d9af99df95d3c"
-  name = "github.com/maistra/istio-operator"
-  packages = [
-    "pkg/apis",
-    "pkg/apis/maistra/v1",
-  ]
-  pruneopts = "NUT"
-  revision = "d329a6b5d69762867dea014203185950bfd8d667"
-
-[[projects]]
   branch = "master"
   digest = "1:0e9bfc47ab9941ecc3344e580baca5deb4091177e84dd9773b48b38ec26b93d5"
   name = "github.com/mattbaird/jsonpatch"
@@ -305,12 +302,9 @@
   version = "1.0.1"
 
 [[projects]]
-  digest = "1:ab7ac1a6ac9aaca9be71064e052662b00735c5dbcc724048c95c375a26efdee4"
+  digest = "1:e87d3f313113709e01fcf7a8b23cba603c0fce432557b93b970e06fda29ca445"
   name = "github.com/openshift/api"
-  packages = [
-    "network/v1",
-    "route/v1",
-  ]
+  packages = ["route/v1"]
   pruneopts = "NUT"
   revision = "0d921e363e951d89f583292c60d013c318df64dc"
   version = "v3.9.0"
@@ -701,15 +695,15 @@
   version = "v2.2.4"
 
 [[projects]]
-  digest = "1:957253985eb07d23646b9f1938a8215ece2941d106cc86538f2b1afac47b2e9e"
+  branch = "release-1.1"
+  digest = "1:fe0635a2a7b00901c8e403a416fc8705c3c3b080f99a2177c4f565adc119a0ca"
   name = "istio.io/api"
   packages = [
     "mesh/v1alpha1",
     "networking/v1alpha3",
   ]
   pruneopts = "NUT"
-  revision = "483f2547d88281bbbdbb5794c1d3fd0c4a62b597"
-  version = "1.3.3"
+  revision = "162827b552e84a48f0d9d45a8f10ea1623706663"
 
 [[projects]]
   digest = "1:760e08df99c3c3b53764ef7c41c03ea9d90e8594d9df42364d9209e99a0352e1"
@@ -1286,8 +1280,8 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/Maistra/istio-operator/pkg/apis/maistra/v1",
     "github.com/google/go-cmp/cmp",
-    "github.com/maistra/istio-operator/pkg/apis",
     "github.com/openshift/api/route/v1",
     "github.com/openshift/client-go/route/clientset/versioned",
     "github.com/openshift/client-go/route/clientset/versioned/fake",
@@ -1302,16 +1296,23 @@
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
+    "k8s.io/apimachinery/pkg/runtime/schema",
+    "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/selection",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
+    "k8s.io/apimachinery/pkg/util/runtime",
     "k8s.io/apimachinery/pkg/util/sets",
     "k8s.io/apimachinery/pkg/util/wait",
+    "k8s.io/apimachinery/pkg/watch",
+    "k8s.io/client-go/discovery",
+    "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",

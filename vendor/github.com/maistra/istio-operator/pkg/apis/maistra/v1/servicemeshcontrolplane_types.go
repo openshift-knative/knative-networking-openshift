@@ -19,6 +19,7 @@ func init() {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // ServiceMeshControlPlane is the Schema for the controlplanes API
+// +genclient
 // +k8s:openapi-gen=true
 type ServiceMeshControlPlane struct {
 	metav1.TypeMeta   `json:",inline"`

@@ -14,4 +14,11 @@ EXTERNAL_INFORMER_PKG="github.com/openshift/client-go/route/informers/externalve
     "route:v1" \
     --go-header-file hack/boilerplate.txt
 
-dep ensure -v
+# Generate maistra clients.
+vendor/k8s.io/code-generator/generate-groups.sh "client,informer,lister" \
+  github.com/openshift-knative/knative-serving-networking-openshift/pkg/client \
+  github.com/Maistra/istio-operator/pkg/apis \
+  "maistra:v1" \
+  --go-header-file hack/boilerplate.txt
+
+hack/update-deps.sh

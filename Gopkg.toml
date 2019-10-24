@@ -12,9 +12,6 @@ required = [
   "github.com/openshift/client-go/route/clientset/versioned",
   "github.com/openshift/client-go/route/informers/externalversions",
   "github.com/openshift/api/route/v1",
-
-  # temporary until servicemesh code is actually used
-  "github.com/maistra/istio-operator/pkg/apis"
 ]
 
 [[override]]
