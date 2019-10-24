@@ -1,6 +1,19 @@
 # Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
 # for detailed Gopkg.toml documentation.
 
+required = [
+  "knative.dev/pkg/codegen/cmd/injection-gen",
+
+  # temporary until route code is actually used
+  "github.com/openshift/client-go/route/clientset/versioned",
+  "github.com/openshift/client-go/route/informers/externalversions",
+  "github.com/openshift/api/route/v1",
+]
+
 [[override]]
   name = "knative.dev/serving"
+  branch = "master"
+
+[[override]]
+  name = "github.com/openshift/client-go"
   branch = "master"

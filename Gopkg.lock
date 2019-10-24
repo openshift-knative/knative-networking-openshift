@@ -291,6 +291,33 @@
   version = "1.0.1"
 
 [[projects]]
+  digest = "1:8aeb4a73c41fd79a868943af3319dc9472172b21063deff6b4391872139f7728"
+  name = "github.com/openshift/api"
+  packages = ["route/v1"]
+  pruneopts = ""
+  revision = "0d921e363e951d89f583292c60d013c318df64dc"
+  version = "v3.9.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:c57e40f4a815cbaf7b219ac81d5a3fbe02bb1801f36480f94533d3aa6c58200a"
+  name = "github.com/openshift/client-go"
+  packages = [
+    "route/clientset/versioned",
+    "route/clientset/versioned/fake",
+    "route/clientset/versioned/scheme",
+    "route/clientset/versioned/typed/route/v1",
+    "route/clientset/versioned/typed/route/v1/fake",
+    "route/informers/externalversions",
+    "route/informers/externalversions/internalinterfaces",
+    "route/informers/externalversions/route",
+    "route/informers/externalversions/route/v1",
+    "route/listers/route/v1",
+  ]
+  pruneopts = ""
+  revision = "2823239d2298214509c3536714f684101799e81b"
+
+[[projects]]
   digest = "1:1d7e1867c49a6dd9856598ef7c3123604ea3daabf5b83f303ff457bcbc410b1d"
   name = "github.com/pkg/errors"
   packages = ["."]
@@ -505,6 +532,28 @@
   packages = ["rate"]
   pruneopts = ""
   revision = "c4c64cad1fd0a1a8dab2523e04e61d35308e131e"
+
+[[projects]]
+  branch = "master"
+  digest = "1:fd63ea96da5cd0ad888d7f9f418f33da5657a364ce091f707f53c04249647206"
+  name = "golang.org/x/tools"
+  packages = [
+    "go/ast/astutil",
+    "go/gcexportdata",
+    "go/internal/gcimporter",
+    "go/internal/packagesdriver",
+    "go/packages",
+    "go/types/typeutil",
+    "imports",
+    "internal/fastwalk",
+    "internal/gopathwalk",
+    "internal/imports",
+    "internal/module",
+    "internal/semver",
+    "internal/span",
+  ]
+  pruneopts = ""
+  revision = "7defa796fec08ff4180eae3379da47019ad16019"
 
 [[projects]]
   branch = "master"
@@ -943,6 +992,32 @@
   version = "kubernetes-1.15.3"
 
 [[projects]]
+  digest = "1:559e29865df733d697a8b075b9904a870400a28ddaccccc2afa35d72da6435f6"
+  name = "k8s.io/code-generator"
+  packages = [
+    "cmd/client-gen/generators/util",
+    "cmd/client-gen/types",
+    "pkg/util",
+  ]
+  pruneopts = ""
+  revision = "18da4a14b22b17d2fa761e50037fabfbacec225b"
+  version = "kubernetes-1.15.3"
+
+[[projects]]
+  branch = "master"
+  digest = "1:f081a7a72695a1410b10f622f423f2c4bcb8b1b2dece06d66517b6bf0c1d2cb1"
+  name = "k8s.io/gengo"
+  packages = [
+    "args",
+    "generator",
+    "namer",
+    "parser",
+    "types",
+  ]
+  pruneopts = ""
+  revision = "7fa3014cb28f99ce2d9e803bcd3efa7edd4effa9"
+
+[[projects]]
   digest = "1:7ce71844fcaaabcbe09a392902edb5790ddca3a7070ae8d20830dc6dbe2751af"
   name = "k8s.io/klog"
   packages = ["."]
@@ -1042,6 +1117,9 @@
     "client/injection/kube/informers/factory/fake",
     "client/listers/authentication/v1alpha1",
     "client/listers/istio/v1alpha3",
+    "codegen/cmd/injection-gen",
+    "codegen/cmd/injection-gen/args",
+    "codegen/cmd/injection-gen/generators",
     "configmap",
     "controller",
     "injection",
@@ -1153,6 +1231,11 @@
   analyzer-version = 1
   input-imports = [
     "github.com/google/go-cmp/cmp",
+    "github.com/openshift/api/route/v1",
+    "github.com/openshift/client-go/route/clientset/versioned",
+    "github.com/openshift/client-go/route/clientset/versioned/fake",
+    "github.com/openshift/client-go/route/informers/externalversions",
+    "github.com/openshift/client-go/route/informers/externalversions/route/v1",
     "go.uber.org/zap",
     "go.uber.org/zap/zaptest",
     "golang.org/x/sync/errgroup",
@@ -1169,6 +1252,7 @@
     "k8s.io/apimachinery/pkg/util/wait",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/listers/core/v1",
+    "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
     "k8s.io/client-go/util/workqueue",
@@ -1191,8 +1275,10 @@
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service",
     "knative.dev/pkg/client/injection/kube/informers/core/v1/service/fake",
     "knative.dev/pkg/client/listers/istio/v1alpha3",
+    "knative.dev/pkg/codegen/cmd/injection-gen",
     "knative.dev/pkg/configmap",
     "knative.dev/pkg/controller",
+    "knative.dev/pkg/injection",
     "knative.dev/pkg/injection/sharedmain",
     "knative.dev/pkg/kmeta",
     "knative.dev/pkg/logging",

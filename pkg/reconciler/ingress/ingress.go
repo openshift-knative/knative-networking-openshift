@@ -61,6 +61,8 @@ import (
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
+
+	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/injection/openshift/informers/route/v1/route"
 )
 
 const (
@@ -153,6 +155,7 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 	endpointsInformer := endpointsinformer.Get(ctx)
 	serviceInformer := serviceinformer.Get(ctx)
 	podInformer := podinformer.Get(ctx)
+	routeInformer := routeinformer.Get(ctx)
 
 	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
 	ingressHandler := cache.FilteringResourceEventHandler{
@@ -163,6 +166,11 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
+		FilterFunc: myFilterFunc,
+		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+	})
+
+	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
 		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
 	})
