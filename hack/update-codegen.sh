@@ -12,5 +12,6 @@ EXTERNAL_INFORMER_PKG="github.com/openshift/client-go/route/informers/externalve
     github.com/openshift/client-go \
     github.com/openshift/api \
     "route:v1" \
+    --go-header-file hack/boilerplate.txt
 
 dep ensure -v

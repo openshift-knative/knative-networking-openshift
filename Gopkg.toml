@@ -17,3 +17,13 @@ required = [
 [[override]]
   name = "github.com/openshift/client-go"
   branch = "master"
+
+[prune]
+  go-tests = true
+  unused-packages = true
+  non-go = true
+
+[[prune.project]]
+  name = "knative.dev/pkg"
+  unused-packages = false
+  non-go = false
