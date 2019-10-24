@@ -21,4 +21,12 @@ vendor/k8s.io/code-generator/generate-groups.sh "client,informer,lister" \
   "maistra:v1" \
   --go-header-file hack/boilerplate.txt
 
+# Generate maistra injection code.
+OUTPUT_PKG="github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/injection/maistra" \
+vendor/knative.dev/pkg/hack/generate-knative.sh "injection" \
+  github.com/openshift-knative/knative-serving-networking-openshift/pkg/client \
+  github.com/Maistra/istio-operator/pkg/apis \
+  "maistra:v1" \
+  --go-header-file hack/boilerplate.txt
+
 hack/update-deps.sh
