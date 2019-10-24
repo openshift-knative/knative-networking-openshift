@@ -17,9 +17,8 @@ limitations under the License.
 package main
 
 import (
-	"knative.dev/serving/pkg/reconciler/ingress"
+	"github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress"
 
-	// This defines the shared main for injected controllers.
 	"knative.dev/pkg/injection/sharedmain"
 )
 
