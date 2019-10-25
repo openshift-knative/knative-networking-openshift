@@ -3,7 +3,7 @@
 package fake
 
 import (
-	maistrav1 "github.com/Maistra/istio-operator/pkg/apis/maistra/v1"
+	maistrav1 "github.com/maistra/istio-operator/pkg/apis/maistra/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

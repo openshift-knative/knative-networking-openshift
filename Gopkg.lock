@@ -35,14 +35,6 @@
   version = "v0.12.5"
 
 [[projects]]
-  branch = "maistra-1.0"
-  digest = "1:6d1593e902d13417c78e4085a51665a3396a15ffeb9b584352d6309d0457e7ee"
-  name = "github.com/Maistra/istio-operator"
-  packages = ["pkg/apis/maistra/v1"]
-  pruneopts = "NUT"
-  revision = "ee1c52ef6e397c4307a0767a8c950e87e1d7a71f"
-
-[[projects]]
   digest = "1:aaedd60d32af2956305c3df30ebd504fde07aa1b407f68af81ee1bb2bb69e669"
   name = "github.com/aws/aws-sdk-go"
   packages = [
@@ -268,6 +260,14 @@
   pruneopts = "NUT"
   revision = "27518f6661eba504be5a7a9a9f6d9460d892ade3"
   version = "v1.1.7"
+
+[[projects]]
+  branch = "maistra-1.0"
+  digest = "1:6d1593e902d13417c78e4085a51665a3396a15ffeb9b584352d6309d0457e7ee"
+  name = "github.com/maistra/istio-operator"
+  packages = ["pkg/apis/maistra/v1"]
+  pruneopts = "NUT"
+  revision = "821aba19137314a8b018e9c30d9a7e8c6f26a35b"
 
 [[projects]]
   branch = "master"
@@ -1280,8 +1280,8 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
-    "github.com/Maistra/istio-operator/pkg/apis/maistra/v1",
     "github.com/google/go-cmp/cmp",
+    "github.com/maistra/istio-operator/pkg/apis/maistra/v1",
     "github.com/openshift/api/route/v1",
     "github.com/openshift/client-go/route/clientset/versioned",
     "github.com/openshift/client-go/route/clientset/versioned/fake",

@@ -17,7 +17,7 @@ EXTERNAL_INFORMER_PKG="github.com/openshift/client-go/route/informers/externalve
 # Generate maistra clients.
 vendor/k8s.io/code-generator/generate-groups.sh "client,informer,lister" \
   github.com/openshift-knative/knative-serving-networking-openshift/pkg/client \
-  github.com/Maistra/istio-operator/pkg/apis \
+  github.com/maistra/istio-operator/pkg/apis \
   "maistra:v1" \
   --go-header-file hack/boilerplate.txt
 
@@ -25,7 +25,7 @@ vendor/k8s.io/code-generator/generate-groups.sh "client,informer,lister" \
 OUTPUT_PKG="github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/injection/maistra" \
 vendor/knative.dev/pkg/hack/generate-knative.sh "injection" \
   github.com/openshift-knative/knative-serving-networking-openshift/pkg/client \
-  github.com/Maistra/istio-operator/pkg/apis \
+  github.com/maistra/istio-operator/pkg/apis \
   "maistra:v1" \
   --go-header-file hack/boilerplate.txt
 

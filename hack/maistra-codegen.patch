@@ -1,7 +1,7 @@
-diff --git a/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/register.go b/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/register.go
+diff --git a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/register.go b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/register.go
 index f8a1d551e..df2b621c4 100644
---- a/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/register.go
-+++ b/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/register.go
+--- a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/register.go
++++ b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/register.go
 @@ -6,6 +6,9 @@
  package v1
  
@@ -46,10 +46,10 @@ index f8a1d551e..df2b621c4 100644
 +	metav1.AddToGroupVersion(scheme, GroupVersion)
 +	return nil
 +}
-diff --git a/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go b/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
+diff --git a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
 index 4fcf42605..a0a89173b 100644
---- a/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
-+++ b/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
+--- a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
++++ b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
 @@ -19,6 +19,7 @@ func init() {
  // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
  
@@ -58,10 +58,10 @@ index 4fcf42605..a0a89173b 100644
  // +k8s:openapi-gen=true
  type ServiceMeshControlPlane struct {
  	metav1.TypeMeta   `json:",inline"`
-diff --git a/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go b/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
+diff --git a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
 index fabefe139..1ffacae40 100644
---- a/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
-+++ b/vendor/github.com/Maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
+--- a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
++++ b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
 @@ -14,6 +14,7 @@ func init() {
  // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
  

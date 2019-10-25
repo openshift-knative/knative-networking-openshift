@@ -5,7 +5,7 @@ package v1
 import (
 	"time"
 
-	v1 "github.com/Maistra/istio-operator/pkg/apis/maistra/v1"
+	v1 "github.com/maistra/istio-operator/pkg/apis/maistra/v1"
 	scheme "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"

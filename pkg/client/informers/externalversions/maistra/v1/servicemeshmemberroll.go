@@ -5,7 +5,7 @@ package v1
 import (
 	time "time"
 
-	maistrav1 "github.com/Maistra/istio-operator/pkg/apis/maistra/v1"
+	maistrav1 "github.com/maistra/istio-operator/pkg/apis/maistra/v1"
 	versioned "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/informers/externalversions/internalinterfaces"
 	v1 "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/listers/maistra/v1"

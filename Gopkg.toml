@@ -12,6 +12,9 @@ required = [
   "github.com/openshift/client-go/route/clientset/versioned",
   "github.com/openshift/client-go/route/informers/externalversions",
   "github.com/openshift/api/route/v1",
+
+  # temporary until servicemesh code is actually used
+  "github.com/maistra/istio-operator/pkg/apis/maistra/v1"
 ]
 
 [[override]]
@@ -23,7 +26,7 @@ required = [
   branch = "master"
 
 [[override]]
-  name = "github.com/Maistra/istio-operator"
+  name = "github.com/maistra/istio-operator"
   branch = "maistra-1.0"
 
 [prune]
