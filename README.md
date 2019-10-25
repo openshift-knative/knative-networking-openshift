@@ -1,4 +1,4 @@
-# Knative Networking Openshift
+# Knative Serving Networking Openshift
 
 This is an implementation of Knative's `Ingress` resource, specific to Openshift needs. This has been "forked" from upstream's `networking-istio` code and as such, the `pkg/reconciler/ingress` package is a nearly identical copy of upstream's code. The goal is to keep this code up-to-speed with upstream advancements and enhance it where necessary to accomodate for Openshift's needs.
 
