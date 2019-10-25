@@ -5,26 +5,26 @@ set -o nounset
 set -o pipefail
 
 # Generate route injection code.
-OUTPUT_PKG="github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/injection/openshift" \
+OUTPUT_PKG="github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection" \
 VERSIONED_CLIENTSET_PKG="github.com/openshift/client-go/route/clientset/versioned" \
 EXTERNAL_INFORMER_PKG="github.com/openshift/client-go/route/informers/externalversions" \
-  vendor/knative.dev/pkg/hack/generate-knative.sh "injection" \
-    github.com/openshift/client-go \
-    github.com/openshift/api \
-    "route:v1" \
-    --go-header-file hack/boilerplate.txt
+vendor/knative.dev/pkg/hack/generate-knative.sh "injection" \
+  github.com/openshift/client-go \
+  github.com/openshift/api \
+  "route:v1" \
+  --go-header-file hack/boilerplate.txt
 
 # Generate maistra clients.
 vendor/k8s.io/code-generator/generate-groups.sh "client,informer,lister" \
-  github.com/openshift-knative/knative-serving-networking-openshift/pkg/client \
+  github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra \
   github.com/maistra/istio-operator/pkg/apis \
   "maistra:v1" \
   --go-header-file hack/boilerplate.txt
 
 # Generate maistra injection code.
-OUTPUT_PKG="github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/injection/maistra" \
+OUTPUT_PKG="github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/injection" \
 vendor/knative.dev/pkg/hack/generate-knative.sh "injection" \
-  github.com/openshift-knative/knative-serving-networking-openshift/pkg/client \
+  github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra \
   github.com/maistra/istio-operator/pkg/apis \
   "maistra:v1" \
   --go-header-file hack/boilerplate.txt

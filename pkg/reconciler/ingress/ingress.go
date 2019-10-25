@@ -62,7 +62,7 @@ import (
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
 
-	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/injection/openshift/informers/route/v1/route"
+	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route"
 )
 
 const (

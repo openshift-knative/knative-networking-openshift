@@ -23,7 +23,7 @@ import (
 	"time"
 
 	// Inject our fakes
-	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/injection/openshift/informers/route/v1/route/fake"
+	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake"
