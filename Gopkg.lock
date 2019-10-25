@@ -120,11 +120,14 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:2b0e6c0bea11257c646616ebd6a62be0ef2b6a0fd8210ac3caeaf57ee136123b"
+  digest = "1:a25f6712ab0e2e053ea8a723d345105367bc5a695deeda08d95ef3f30b9d1944"
   name = "github.com/gogo/protobuf"
   packages = [
+    "gogoproto",
     "proto",
+    "protoc-gen-gogo/descriptor",
     "sortkeys",
+    "types",
   ]
   pruneopts = "NUT"
   revision = "5628607bb4c51c3157aacc3a50f0ab707582b805"
@@ -257,6 +260,14 @@
   pruneopts = "NUT"
   revision = "27518f6661eba504be5a7a9a9f6d9460d892ade3"
   version = "v1.1.7"
+
+[[projects]]
+  branch = "maistra-1.0"
+  digest = "1:6d1593e902d13417c78e4085a51665a3396a15ffeb9b584352d6309d0457e7ee"
+  name = "github.com/maistra/istio-operator"
+  packages = ["pkg/apis/maistra/v1"]
+  pruneopts = "NUT"
+  revision = "821aba19137314a8b018e9c30d9a7e8c6f26a35b"
 
 [[projects]]
   branch = "master"
@@ -684,6 +695,17 @@
   version = "v2.2.4"
 
 [[projects]]
+  branch = "release-1.1"
+  digest = "1:fe0635a2a7b00901c8e403a416fc8705c3c3b080f99a2177c4f565adc119a0ca"
+  name = "istio.io/api"
+  packages = [
+    "mesh/v1alpha1",
+    "networking/v1alpha3",
+  ]
+  pruneopts = "NUT"
+  revision = "162827b552e84a48f0d9d45a8f10ea1623706663"
+
+[[projects]]
   digest = "1:760e08df99c3c3b53764ef7c41c03ea9d90e8594d9df42364d9209e99a0352e1"
   name = "k8s.io/api"
   packages = [
@@ -992,23 +1014,40 @@
   version = "kubernetes-1.15.3"
 
 [[projects]]
-  digest = "1:0de38a8ede874df7572af0d2916f667944e442b26962b3bb004f6ae0b981e0fb"
+  digest = "1:f41480fd8c5f54b13326ee0f2ee398d5734789b790dbc4db57f9b08a0d63139a"
   name = "k8s.io/code-generator"
   packages = [
+    "cmd/client-gen",
+    "cmd/client-gen/args",
+    "cmd/client-gen/generators",
+    "cmd/client-gen/generators/fake",
+    "cmd/client-gen/generators/scheme",
     "cmd/client-gen/generators/util",
+    "cmd/client-gen/path",
     "cmd/client-gen/types",
+    "cmd/deepcopy-gen",
+    "cmd/deepcopy-gen/args",
+    "cmd/informer-gen",
+    "cmd/informer-gen/args",
+    "cmd/informer-gen/generators",
+    "cmd/lister-gen",
+    "cmd/lister-gen/args",
+    "cmd/lister-gen/generators",
+    "pkg/namer",
     "pkg/util",
   ]
-  pruneopts = "NUT"
+  pruneopts = "T"
   revision = "18da4a14b22b17d2fa761e50037fabfbacec225b"
   version = "kubernetes-1.15.3"
 
 [[projects]]
   branch = "master"
-  digest = "1:51c41f6a990e0d3a71e61739009d3a1718ad77d49da43e9c63ed428bb25c198a"
+  digest = "1:5d85e7488a6829643e52693cd548582a56858bfe24f9444d2f1ac2b69f3f5c36"
   name = "k8s.io/gengo"
   packages = [
     "args",
+    "examples/deepcopy-gen/generators",
+    "examples/set-gen/sets",
     "generator",
     "namer",
     "parser",
@@ -1219,6 +1258,17 @@
   revision = "1d263950f9f2fea85a4dd394948a029c328af9d9"
 
 [[projects]]
+  digest = "1:68cd93696d4de06936c94bf0c510802140c2d3c956b557f3d001430d58cf676c"
+  name = "sigs.k8s.io/controller-runtime"
+  packages = [
+    "pkg/runtime/scheme",
+    "pkg/scheme",
+  ]
+  pruneopts = "NUT"
+  revision = "d21241119ea4de139f1892ba2f5bc72c96d07f3f"
+  version = "v0.3.0"
+
+[[projects]]
   digest = "1:8730e0150dfb2b7e173890c8b9868e7a273082ef8e39f4940e3506a481cf895c"
   name = "sigs.k8s.io/yaml"
   packages = ["."]
@@ -1231,6 +1281,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/google/go-cmp/cmp",
+    "github.com/maistra/istio-operator/pkg/apis/maistra/v1",
     "github.com/openshift/api/route/v1",
     "github.com/openshift/client-go/route/clientset/versioned",
     "github.com/openshift/client-go/route/clientset/versioned/fake",
@@ -1245,17 +1296,28 @@
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
+    "k8s.io/apimachinery/pkg/runtime/schema",
+    "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/selection",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/intstr",
+    "k8s.io/apimachinery/pkg/util/runtime",
     "k8s.io/apimachinery/pkg/util/sets",
     "k8s.io/apimachinery/pkg/util/wait",
+    "k8s.io/apimachinery/pkg/watch",
+    "k8s.io/client-go/discovery",
+    "k8s.io/client-go/discovery/fake",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/listers/core/v1",
     "k8s.io/client-go/rest",
     "k8s.io/client-go/testing",
     "k8s.io/client-go/tools/cache",
+    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/client-go/util/workqueue",
+    "k8s.io/code-generator/cmd/client-gen",
+    "k8s.io/code-generator/cmd/deepcopy-gen",
+    "k8s.io/code-generator/cmd/informer-gen",
+    "k8s.io/code-generator/cmd/lister-gen",
     "knative.dev/pkg/apis",
     "knative.dev/pkg/apis/duck/v1",
     "knative.dev/pkg/apis/istio/v1alpha3",

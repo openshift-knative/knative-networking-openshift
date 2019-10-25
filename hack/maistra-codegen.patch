@@ -1,0 +1,72 @@
+diff --git a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/register.go b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/register.go
+index f8a1d551e..df2b621c4 100644
+--- a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/register.go
++++ b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/register.go
+@@ -6,6 +6,9 @@
+ package v1
+ 
+ import (
++	corev1 "k8s.io/api/core/v1"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/apimachinery/pkg/runtime"
+ 	"k8s.io/apimachinery/pkg/runtime/schema"
+ 	"sigs.k8s.io/controller-runtime/pkg/runtime/scheme"
+ )
+@@ -17,3 +20,33 @@ var (
+ 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+ 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+ )
++
++var (
++	GroupName     = SchemeGroupVersion.Group
++	GroupVersion  = schema.GroupVersion{Group: GroupName, Version: SchemeGroupVersion.Version}
++	schemeBuilder = runtime.NewSchemeBuilder(addKnownTypes, corev1.AddToScheme)
++	// Install is a function which adds this version to a scheme
++	Install = schemeBuilder.AddToScheme
++
++	// AddToScheme exists solely to keep the old generators creating valid code
++	// DEPRECATED
++	AddToScheme = schemeBuilder.AddToScheme
++)
++
++// Resource generated code relies on this being here, but it logically belongs to the group
++// DEPRECATED
++func Resource(resource string) schema.GroupResource {
++	return schema.GroupResource{Group: GroupName, Resource: resource}
++}
++
++// Adds the list of known types to api.Scheme.
++func addKnownTypes(scheme *runtime.Scheme) error {
++	scheme.AddKnownTypes(GroupVersion,
++		&ServiceMeshMemberRoll{},
++		&ServiceMeshMemberRollList{},
++		&ServiceMeshControlPlane{},
++		&ServiceMeshControlPlaneList{},
++	)
++	metav1.AddToGroupVersion(scheme, GroupVersion)
++	return nil
++}
+diff --git a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
+index 4fcf42605..a0a89173b 100644
+--- a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
++++ b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshcontrolplane_types.go
+@@ -19,6 +19,7 @@ func init() {
+ // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+ 
+ // ServiceMeshControlPlane is the Schema for the controlplanes API
++// +genclient
+ // +k8s:openapi-gen=true
+ type ServiceMeshControlPlane struct {
+ 	metav1.TypeMeta   `json:",inline"`
+diff --git a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
+index fabefe139..1ffacae40 100644
+--- a/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
++++ b/vendor/github.com/maistra/istio-operator/pkg/apis/maistra/v1/servicemeshmemberroll_types.go
+@@ -14,6 +14,7 @@ func init() {
+ // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+ 
+ // ServiceMeshMemberRoll is the Schema for the servicemeshmemberrolls API
++// +genclient
+ // +k8s:openapi-gen=true
+ type ServiceMeshMemberRoll struct {
+ 	metav1.TypeMeta   `json:",inline"`
