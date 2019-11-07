@@ -63,6 +63,8 @@ import (
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
 
 	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route"
+	oresources "github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress/resources"
+	routev1 "github.com/openshift/api/route/v1"
 )
 
 const (
@@ -172,7 +174,8 @@ func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *cont
 
 	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
+		Handler: controller.HandleAll(
+			impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)),
 	})
 
 	r.Logger.Info("Setting up ConfigMap receivers")
@@ -372,6 +375,18 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
 		ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+
+		desiredRoutes, err := oresources.MakeRoutes(ia)
+		if err != nil {
+			return fmt.Errorf("failed to generate routes: %w", err)
+		}
+		routes, err := r.reconcileRoutes(ctx, ia, desiredRoutes)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile routes: %w", err)
+		}
+		if !allRoutesReady(routes) {
+			ia.GetStatus().MarkLoadBalancerPending()
+		}
 	} else {
 		ia.GetStatus().MarkLoadBalancerPending()
 	}
@@ -614,4 +629,31 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 
 func enableReconcileGateway(ctx context.Context) bool {
 	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
+}
+
+func (r *BaseIngressReconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.IngressAccessor, desiredRoutes []*routev1.Route) ([]*routev1.Route, error) {
+	return nil, nil
+}
+
+func allRoutesReady(rs []*routev1.Route) bool {
+	for _, r := range rs {
+		if !isRouteReady(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func isRouteReady(r *routev1.Route) bool {
+	for _, ing := range r.Status.Ingress {
+		for _, cond := range ing.Conditions {
+			if cond.Type != routev1.RouteAdmitted {
+				continue
+			}
+			if cond.Status != corev1.ConditionTrue {
+				return false
+			}
+		}
+	}
+	return true
 }
