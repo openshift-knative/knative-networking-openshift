@@ -106,7 +106,7 @@ func parseInternalDomainToService(domainInternal string) (types.NamespacedName, 
 func MakeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.NamespacedName, timeout time.Duration) *routev1.Route {
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      routeName(string(ing.GetUID()), host),
+			Name:      RouteName(string(ing.GetUID()), host),
 			Namespace: svc.Namespace,
 			Labels: presources.UnionMaps(ing.GetLabels(), map[string]string{
 				networking.IngressLabelKey: string(ing.GetUID()),
@@ -139,7 +139,7 @@ func MakeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.Na
 	return route
 }
 
-func routeName(uid, host string) string {
+func RouteName(uid, host string) string {
 	return fmt.Sprintf("route-%s-%x", uid, hashHost(host))
 }
 

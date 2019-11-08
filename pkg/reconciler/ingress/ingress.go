@@ -334,6 +334,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	if err != nil {
 		return fmt.Errorf("failed to probe Ingress %s/%s: %w", ia.GetNamespace(), ia.GetName(), err)
 	}
+
 	if ready {
 		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
@@ -416,7 +417,12 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 
-	// If our finalizer is first, delete the `Servers` from Gateway for this Ingress,
+	// With no desired routes, all routes matching the selector will be removed.
+	if _, err := r.reconcileRoutes(ctx, ia, nil); err != nil {
+		return err
+	}
+
+	// If our Finalizer is first, delete the `Servers` from Gateway for this Ingress,
 	// and remove the finalizer.
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.finalizer {
 		return nil
@@ -636,7 +642,10 @@ func (r *BaseIngressReconciler) reconcileRoutes(ctx context.Context, ia v1alpha1
 }
 
 func (r *BaseIngressReconciler) reconcileRoute(ctx context.Context, desiredRoute *routev1.Route, route *routev1.Route) (*routev1.Route, error) {
+	logger := logging.FromContext(ctx)
+
 	if route == nil {
+		logger.Infof("Creating route with host %q", desiredRoute.Spec.Host)
 		route, err := r.routeClient.RouteV1().Routes(desiredRoute.Namespace).Create(desiredRoute)
 		if err != nil {
 			return nil, fmt.Errorf("error creating route %q for host %q: %w", desiredRoute.Name, desiredRoute.Spec.Host, err)
@@ -646,6 +655,7 @@ func (r *BaseIngressReconciler) reconcileRoute(ctx context.Context, desiredRoute
 	if !equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
 		want := route.DeepCopy()
 		want.Spec = desiredRoute.Spec
+		logger.Infof("Updating route with host %q", desiredRoute.Spec.Host)
 		route, err := r.routeClient.RouteV1().Routes(want.Namespace).Update(want)
 		if err != nil {
 			return nil, fmt.Errorf("error updating route %q for host %q: %w", want.Name, desiredRoute.Spec.Host, err)
@@ -670,10 +680,10 @@ func isRouteReady(r *routev1.Route) bool {
 			if cond.Type != routev1.RouteAdmitted {
 				continue
 			}
-			if cond.Status != corev1.ConditionTrue {
-				return false
+			if cond.Status == corev1.ConditionTrue {
+				return true
 			}
 		}
 	}
-	return true
+	return false
 }
