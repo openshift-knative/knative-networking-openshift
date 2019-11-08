@@ -71,11 +71,7 @@ func MakeRoutes(ing networkingv1alpha1.IngressAccessor, lbs []networkingv1alpha1
 			if strings.HasSuffix(host, network.GetClusterDomainName()) {
 				continue
 			}
-			route, err := makeRoute(ing, host, service, timeout)
-			if err != nil {
-				return nil, err
-			}
-			routes = append(routes, route)
+			routes = append(routes, MakeRoute(ing, host, service, timeout))
 		}
 	}
 
@@ -107,7 +103,7 @@ func parseInternalDomainToService(domainInternal string) (types.NamespacedName, 
 	}, nil
 }
 
-func makeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.NamespacedName, timeout time.Duration) (*routev1.Route, error) {
+func MakeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.NamespacedName, timeout time.Duration) *routev1.Route {
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      routeName(string(ing.GetUID()), host),
@@ -137,11 +133,10 @@ func makeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.Na
 			route.Spec.TLS = &routev1.TLSConfig{Termination: routev1.TLSTerminationPassthrough}
 			route.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("https")}
 		default:
-			return nil, ErrNotSupportedTLSTermination
 		}
 	}
 
-	return route, nil
+	return route
 }
 
 func routeName(uid, host string) string {

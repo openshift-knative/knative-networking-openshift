@@ -26,7 +26,7 @@ const (
 	routeBase = "route-" + uid
 )
 
-func TestMakeRoute(t *testing.T) {
+func TestMakeRoutes(t *testing.T) {
 	tests := []struct {
 		name    string
 		ingress networkingv1alpha1.IngressAccessor
@@ -246,11 +246,35 @@ func TestMakeRoute(t *testing.T) {
 			}},
 		},
 		{
-			name: "tls: unsupported termination",
+			name: "tls: ignore unsupported termination",
 			ingress: ingress(withTLSTerminationAnnotation("edge"), withRules(
 				rule(withHosts([]string{localDomain, externalDomain}))),
 			),
-			wantErr: ErrNotSupportedTLSTermination,
+			want: []*routev1.Route{{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						networking.IngressLabelKey:     uid,
+						serving.RouteLabelKey:          "route1",
+						serving.RouteNamespaceLabelKey: "default",
+					},
+					Annotations: map[string]string{
+						TimeoutAnnotation:        "600s",
+						TLSTerminationAnnotation: "edge",
+					},
+					Namespace: lbNamespace,
+					Name:      routeName(uid, externalDomain),
+				},
+				Spec: routev1.RouteSpec{
+					Host: externalDomain,
+					To: routev1.RouteTargetReference{
+						Kind: "Service",
+						Name: lbService,
+					},
+					Port: &routev1.RoutePort{
+						TargetPort: intstr.FromString("http2"),
+					},
+				},
+			}},
 		},
 	}
 
