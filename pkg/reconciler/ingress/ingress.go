@@ -62,9 +62,12 @@ import (
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
 
+	routeclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client"
 	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route"
 	oresources "github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress/resources"
 	routev1 "github.com/openshift/api/route/v1"
+	routeversioned "github.com/openshift/client-go/route/clientset/versioned"
+	routev1listers "github.com/openshift/client-go/route/listers/route/v1"
 )
 
 const (
@@ -103,6 +106,8 @@ type BaseIngressReconciler struct {
 	GatewayLister        istiolisters.GatewayLister
 	SecretLister         corev1listers.SecretLister
 	ConfigStore          reconciler.ConfigStore
+	RouteLister          routev1listers.RouteLister
+	RouteClient          routeversioned.Interface
 
 	Tracker   tracker.Interface
 	Finalizer string
@@ -120,12 +125,16 @@ func NewBaseIngressReconciler(ctx context.Context, agentName, finalizer string, 
 	virtualServiceInformer := virtualserviceinformer.Get(ctx)
 	gatewayInformer := gatewayinformer.Get(ctx)
 	secretInformer := secretinformer.Get(ctx)
+	routeInformer := routeinformer.Get(ctx)
+	routeClient := routeclient.Get(ctx)
 
 	base := &BaseIngressReconciler{
 		Base:                 reconciler.NewBase(ctx, agentName, cmw),
 		VirtualServiceLister: virtualServiceInformer.Lister(),
 		GatewayLister:        gatewayInformer.Lister(),
 		SecretLister:         secretInformer.Lister(),
+		RouteLister:          routeInformer.Lister(),
+		RouteClient:          routeClient,
 		Finalizer:            finalizer,
 	}
 	return base
@@ -451,6 +460,8 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
 
+	// TODO Remove all routes.
+
 	// If our Finalizer is first, delete the `Servers` from Gateway for this Ingress,
 	// and remove the finalizer.
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.Finalizer {
@@ -633,7 +644,61 @@ func enableReconcileGateway(ctx context.Context) bool {
 }
 
 func (r *BaseIngressReconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.IngressAccessor, desiredRoutes []*routev1.Route) ([]*routev1.Route, error) {
-	return nil, nil
+	routes, err := r.RouteLister.List(labels.SelectorFromSet(map[string]string{
+		networking.IngressLabelKey:     string(ia.GetUID()),
+		serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
+		serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey],
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list routes: %w", err)
+	}
+
+	// Create a map of all existing routes for quick access.
+	existingRoutes := make(map[string]*routev1.Route, len(routes))
+	for _, route := range routes {
+		existingRoutes[route.Name] = route
+	}
+
+	reconciledRoutes := make([]*routev1.Route, 0, len(desiredRoutes))
+	for _, route := range desiredRoutes {
+		// If there's no existing routes, the reconcile function handles that gracefully.
+		reconciledRoute, err := r.reconcileRoute(ctx, route, existingRoutes[route.Name])
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconcile route: %w", err)
+		}
+		reconciledRoutes = append(reconciledRoutes, reconciledRoute)
+
+		// Remove key from map of existing routes to find those that we need to delete.
+		delete(existingRoutes, route.Name)
+	}
+
+	for _, route := range existingRoutes {
+		if err := r.RouteClient.RouteV1().Routes(route.Namespace).Delete(route.Name, &metav1.DeleteOptions{}); err != nil {
+			return nil, fmt.Errorf("failed to remove route %q: %w", route.Name, err)
+		}
+	}
+
+	return reconciledRoutes, nil
+}
+
+func (r *BaseIngressReconciler) reconcileRoute(ctx context.Context, desiredRoute *routev1.Route, route *routev1.Route) (*routev1.Route, error) {
+	if route == nil {
+		route, err := r.RouteClient.RouteV1().Routes(desiredRoute.Namespace).Create(desiredRoute)
+		if err != nil {
+			return nil, fmt.Errorf("error creating route %q for host %q: %w", desiredRoute.Name, desiredRoute.Spec.Host, err)
+		}
+		return route, nil
+	}
+	if !equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
+		want := route.DeepCopy()
+		want.Spec = desiredRoute.Spec
+		route, err := r.RouteClient.RouteV1().Routes(want.Namespace).Update(want)
+		if err != nil {
+			return nil, fmt.Errorf("error updating route %q for host %q: %w", want.Name, desiredRoute.Spec.Host, err)
+		}
+		return route, nil
+	}
+	return route, nil
 }
 
 func allRoutesReady(rs []*routev1.Route) bool {
