@@ -334,7 +334,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
 
-		desiredRoutes, err := oresources.MakeRoutes(ia)
+		desiredRoutes, err := oresources.MakeRoutes(ia, publicLbs)
 		if err != nil {
 			return fmt.Errorf("failed to generate routes: %w", err)
 		}

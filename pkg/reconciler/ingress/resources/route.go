@@ -36,7 +36,7 @@ var (
 )
 
 // MakeRoutes creates OpenShift Routes from a Knative Ingress
-func MakeRoutes(ing networkingv1alpha1.IngressAccessor) ([]*routev1.Route, error) {
+func MakeRoutes(ing networkingv1alpha1.IngressAccessor, lbs []networkingv1alpha1.LoadBalancerIngressStatus) ([]*routev1.Route, error) {
 	// Skip making routes when the annotation is specified.
 	if _, ok := ing.GetAnnotations()[DisableRouteAnnotation]; ok {
 		return nil, nil
@@ -47,7 +47,7 @@ func MakeRoutes(ing networkingv1alpha1.IngressAccessor) ([]*routev1.Route, error
 		return nil, nil
 	}
 
-	service, err := findParseableInternalDomain(ing)
+	service, err := findParseableInternalDomain(lbs)
 	if err != nil {
 		return nil, err
 	}
@@ -85,12 +85,8 @@ func MakeRoutes(ing networkingv1alpha1.IngressAccessor) ([]*routev1.Route, error
 	return routes, nil
 }
 
-func findParseableInternalDomain(ing networkingv1alpha1.IngressAccessor) (types.NamespacedName, error) {
-	loadbalancer := ing.GetStatus().LoadBalancer
-	if loadbalancer == nil {
-		return types.NamespacedName{}, ErrNoValidLoadbalancerDomain
-	}
-	for _, ingress := range loadbalancer.Ingress {
+func findParseableInternalDomain(lbs []networkingv1alpha1.LoadBalancerIngressStatus) (types.NamespacedName, error) {
+	for _, ingress := range lbs {
 		if ingress.DomainInternal == "" {
 			continue
 		}
