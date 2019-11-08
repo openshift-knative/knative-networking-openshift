@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	routev1 "github.com/openshift/api/route/v1"
+	routev1listers "github.com/openshift/client-go/route/listers/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -51,6 +53,7 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	fakecachingclientset.AddToScheme,
 	certmanagerv1alpha1.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
+	routev1.AddToScheme,
 }
 
 type Listers struct {
@@ -199,4 +202,12 @@ func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
 // GetNamespaceLister gets lister for Namespace resource.
 func (l *Listers) GetNamespaceLister() corev1listers.NamespaceLister {
 	return corev1listers.NewNamespaceLister(l.IndexerFor(&corev1.Namespace{}))
+}
+
+func (l *Listers) GetOpenshiftRouteLister() routev1listers.RouteLister {
+	return routev1listers.NewRouteLister(l.IndexerFor(&routev1.Route{}))
+}
+
+func (l *Listers) GetOpenshiftObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(routev1.AddToScheme)
 }

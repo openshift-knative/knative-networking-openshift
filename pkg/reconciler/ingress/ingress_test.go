@@ -23,7 +23,7 @@ import (
 	"time"
 
 	// Inject our fakes
-	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client/fake"
+	fakerouteclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client/fake"
 	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
@@ -401,6 +401,8 @@ func TestReconcile(t *testing.T) {
 				Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 				VirtualServiceLister: listers.GetVirtualServiceLister(),
 				GatewayLister:        listers.GetGatewayLister(),
+				routeLister:          listers.GetOpenshiftRouteLister(),
+				routeClient:          fakerouteclient.Get(ctx),
 				Finalizer:            ingressFinalizer,
 				ConfigStore: &testConfigStore{
 					config: ReconcilerTestConfig(),
@@ -804,6 +806,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 				VirtualServiceLister: listers.GetVirtualServiceLister(),
 				GatewayLister:        listers.GetGatewayLister(),
 				SecretLister:         listers.GetSecretLister(),
+				routeLister:          listers.GetOpenshiftRouteLister(),
+				routeClient:          fakerouteclient.Get(ctx),
 				Tracker:              &NullTracker{},
 				Finalizer:            ingressFinalizer,
 				// Enable reconciling gateway.
