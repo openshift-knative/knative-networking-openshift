@@ -57,7 +57,7 @@ import (
 	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route"
 	oresources "github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress/resources"
 	routev1 "github.com/openshift/api/route/v1"
-	routeversioned "github.com/openshift/client-go/route/clientset/versioned"
+	routev1client "github.com/openshift/client-go/route/clientset/versioned"
 	routev1listers "github.com/openshift/client-go/route/listers/route/v1"
 )
 
@@ -83,6 +83,8 @@ type Reconciler struct {
 	gatewayLister        istiolisters.GatewayLister
 	secretLister         corev1listers.SecretLister
 	ingressLister        listers.IngressLister
+	routeLister          routev1listers.RouteLister
+	routeClient          routev1client.Interface
 
 	configStore reconciler.ConfigStore
 	tracker     tracker.Interface
@@ -596,7 +598,7 @@ func enableReconcileGateway(ctx context.Context) bool {
 }
 
 func (r *BaseIngressReconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.IngressAccessor, desiredRoutes []*routev1.Route) ([]*routev1.Route, error) {
-	routes, err := r.RouteLister.List(labels.SelectorFromSet(map[string]string{
+	routes, err := r.routeLister.List(labels.SelectorFromSet(map[string]string{
 		networking.IngressLabelKey:     string(ia.GetUID()),
 		serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
 		serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey],
@@ -625,7 +627,7 @@ func (r *BaseIngressReconciler) reconcileRoutes(ctx context.Context, ia v1alpha1
 	}
 
 	for _, route := range existingRoutes {
-		if err := r.RouteClient.RouteV1().Routes(route.Namespace).Delete(route.Name, &metav1.DeleteOptions{}); err != nil {
+		if err := r.routeClient.RouteV1().Routes(route.Namespace).Delete(route.Name, &metav1.DeleteOptions{}); err != nil {
 			return nil, fmt.Errorf("failed to remove route %q: %w", route.Name, err)
 		}
 	}
@@ -635,7 +637,7 @@ func (r *BaseIngressReconciler) reconcileRoutes(ctx context.Context, ia v1alpha1
 
 func (r *BaseIngressReconciler) reconcileRoute(ctx context.Context, desiredRoute *routev1.Route, route *routev1.Route) (*routev1.Route, error) {
 	if route == nil {
-		route, err := r.RouteClient.RouteV1().Routes(desiredRoute.Namespace).Create(desiredRoute)
+		route, err := r.routeClient.RouteV1().Routes(desiredRoute.Namespace).Create(desiredRoute)
 		if err != nil {
 			return nil, fmt.Errorf("error creating route %q for host %q: %w", desiredRoute.Name, desiredRoute.Spec.Host, err)
 		}
@@ -644,7 +646,7 @@ func (r *BaseIngressReconciler) reconcileRoute(ctx context.Context, desiredRoute
 	if !equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
 		want := route.DeepCopy()
 		want.Spec = desiredRoute.Spec
-		route, err := r.RouteClient.RouteV1().Routes(want.Namespace).Update(want)
+		route, err := r.routeClient.RouteV1().Routes(want.Namespace).Update(want)
 		if err != nil {
 			return nil, fmt.Errorf("error updating route %q for host %q: %w", want.Name, desiredRoute.Spec.Host, err)
 		}

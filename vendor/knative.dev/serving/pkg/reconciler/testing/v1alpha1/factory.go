@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	fakerouteclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client/fake"
 	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
@@ -74,6 +75,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
 		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
 		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
+		ctx, routeClient := fakerouteclient.With(ctx, ls.GetOpenshiftObjects()...)
 		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
 
 		// The dynamic client's support for patching is BS.  Implement it
@@ -114,6 +116,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			dynamicClient.PrependReactor("*", "*", reactor)
 			cachingClient.PrependReactor("*", "*", reactor)
 			certManagerClient.PrependReactor("*", "*", reactor)
+			routeClient.PrependReactor("*", "*", reactor)
 		}
 
 		// Validate all Create operations through the serving client.
@@ -126,7 +129,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
 			return rtesting.ValidateUpdates(context.Background(), action)
 		})
 
-		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
+		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient, routeClient}
 		eventList := rtesting.EventList{Recorder: eventRecorder}
 
 		return c, actionRecorderList, eventList, statsReporter
