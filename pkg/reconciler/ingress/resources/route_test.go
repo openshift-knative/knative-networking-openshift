@@ -61,7 +61,7 @@ func TestMakeRoute(t *testing.T) {
 						TimeoutAnnotation: "600s",
 					},
 					Namespace: lbNamespace,
-					Name:      routeBase + "-1",
+					Name:      routeName(uid, externalDomain),
 				},
 				Spec: routev1.RouteSpec{
 					Host: externalDomain,
@@ -105,7 +105,7 @@ func TestMakeRoute(t *testing.T) {
 						TimeoutAnnotation: "3600s",
 					},
 					Namespace: lbNamespace,
-					Name:      routeBase + "-1",
+					Name:      routeName(uid, externalDomain),
 				},
 				Spec: routev1.RouteSpec{
 					Host: externalDomain,
@@ -136,7 +136,7 @@ func TestMakeRoute(t *testing.T) {
 						TimeoutAnnotation: "600s",
 					},
 					Namespace: lbNamespace,
-					Name:      routeBase + "-1",
+					Name:      routeName(uid, externalDomain),
 				},
 				Spec: routev1.RouteSpec{
 					Host: externalDomain,
@@ -159,7 +159,7 @@ func TestMakeRoute(t *testing.T) {
 						TimeoutAnnotation: "600s",
 					},
 					Namespace: lbNamespace,
-					Name:      routeBase + "-3",
+					Name:      routeName(uid, externalDomain2),
 				},
 				Spec: routev1.RouteSpec{
 					Host: externalDomain2,
@@ -190,7 +190,7 @@ func TestMakeRoute(t *testing.T) {
 						TimeoutAnnotation: "600s",
 					},
 					Namespace: lbNamespace,
-					Name:      routeBase + "-3",
+					Name:      routeName(uid, externalDomain2),
 				},
 				Spec: routev1.RouteSpec{
 					Host: externalDomain2,
@@ -228,7 +228,7 @@ func TestMakeRoute(t *testing.T) {
 						TLSTerminationAnnotation: "passthrough",
 					},
 					Namespace: lbNamespace,
-					Name:      routeBase + "-1",
+					Name:      routeName(uid, externalDomain),
 				},
 				Spec: routev1.RouteSpec{
 					Host: externalDomain,

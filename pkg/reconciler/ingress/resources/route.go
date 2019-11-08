@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
@@ -53,11 +54,9 @@ func MakeRoutes(ing networkingv1alpha1.IngressAccessor, lbs []networkingv1alpha1
 	}
 
 	var routes []*routev1.Route
-	var index int
 	for _, rule := range ing.GetSpec().Rules {
 		// Skip generating routes for cluster-local rules.
 		if rule.Visibility == networkingv1alpha1.IngressVisibilityClusterLocal {
-			index += len(rule.Hosts)
 			continue
 		}
 
@@ -70,11 +69,9 @@ func MakeRoutes(ing networkingv1alpha1.IngressAccessor, lbs []networkingv1alpha1
 		for _, host := range rule.Hosts {
 			// Ignore cluster-local domains.
 			if strings.HasSuffix(host, network.GetClusterDomainName()) {
-				index += 1
 				continue
 			}
-			route, err := makeRoute(ing, index, host, service, timeout)
-			index += 1
+			route, err := makeRoute(ing, host, service, timeout)
 			if err != nil {
 				return nil, err
 			}
@@ -110,12 +107,10 @@ func parseInternalDomainToService(domainInternal string) (types.NamespacedName, 
 	}, nil
 }
 
-func makeRoute(ing networkingv1alpha1.IngressAccessor,
-	index int, host string, svc types.NamespacedName, timeout time.Duration) (*routev1.Route, error) {
-
+func makeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.NamespacedName, timeout time.Duration) (*routev1.Route, error) {
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("route-%s-%d", ing.GetUID(), index),
+			Name:      routeName(string(ing.GetUID()), host),
 			Namespace: svc.Namespace,
 			Labels: presources.UnionMaps(ing.GetLabels(), map[string]string{
 				networking.IngressLabelKey: string(ing.GetUID()),
@@ -147,4 +142,12 @@ func makeRoute(ing networkingv1alpha1.IngressAccessor,
 	}
 
 	return route, nil
+}
+
+func routeName(uid, host string) string {
+	return fmt.Sprintf("route-%s-%x", uid, hashHost(host))
+}
+
+func hashHost(host string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(host)))[0:6]
 }
