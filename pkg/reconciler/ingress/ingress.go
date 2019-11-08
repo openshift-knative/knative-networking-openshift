@@ -374,9 +374,8 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
-		ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 
-		desiredRoutes, err := oresources.MakeRoutes(ia)
+		desiredRoutes, err := oresources.MakeRoutes(ia, publicLbs)
 		if err != nil {
 			return fmt.Errorf("failed to generate routes: %w", err)
 		}
@@ -384,7 +383,9 @@ func (r *BaseIngressReconciler) reconcileIngress(ctx context.Context, ra Reconci
 		if err != nil {
 			return fmt.Errorf("failed to reconcile routes: %w", err)
 		}
-		if !allRoutesReady(routes) {
+		if allRoutesReady(routes) {
+			ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+		} else {
 			ia.GetStatus().MarkLoadBalancerPending()
 		}
 	} else {

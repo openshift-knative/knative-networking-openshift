@@ -256,7 +256,7 @@ func TestMakeRoute(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			routes, err := MakeRoutes(test.ingress)
+			routes, err := MakeRoutes(test.ingress, test.ingress.GetStatus().PublicLoadBalancer.Ingress)
 			if test.want != nil && !cmp.Equal(routes, test.want) {
 				t.Errorf("got = %v, want: %v\ndiff: %s", routes, test.want, cmp.Diff(routes, test.want))
 			}
@@ -282,7 +282,7 @@ func ingress(options ...ingressOption) networkingv1alpha1.IngressAccessor {
 			Visibility: networkingv1alpha1.IngressVisibilityExternalIP,
 		},
 		Status: networkingv1alpha1.IngressStatus{
-			LoadBalancer: &networkingv1alpha1.LoadBalancerStatus{
+			PublicLoadBalancer: &networkingv1alpha1.LoadBalancerStatus{
 				Ingress: []networkingv1alpha1.LoadBalancerIngressStatus{{
 					DomainInternal: fmt.Sprintf("%s.%s.svc.cluster.local", lbService, lbNamespace),
 				}},
@@ -347,7 +347,7 @@ func withLocalVisibility(ing networkingv1alpha1.IngressAccessor) {
 func withLBInternalDomain(domain string) ingressOption {
 	return func(ing networkingv1alpha1.IngressAccessor) {
 		status := ing.GetStatus()
-		status.LoadBalancer.Ingress[0].DomainInternal = domain
+		status.PublicLoadBalancer.Ingress[0].DomainInternal = domain
 	}
 }
 
