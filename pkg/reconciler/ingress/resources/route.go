@@ -28,9 +28,6 @@ const (
 )
 
 var (
-	// ErrNotSupportedTLSTermination is an error when unsupported TLS termination is configured via annotation.
-	ErrNotSupportedTLSTermination = errors.New("not supported tls termination is specified, only 'passthrough' is valid")
-
 	// ErrNoValidLoadbalancerDomain indicates that the current ingress does not have a DomainInternal field, or
 	// said field does not contain a value we can work with.
 	ErrNoValidLoadbalancerDomain = errors.New("no parseable internal domain for ingresses found")
@@ -106,7 +103,7 @@ func parseInternalDomainToService(domainInternal string) (types.NamespacedName, 
 func MakeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.NamespacedName, timeout time.Duration) *routev1.Route {
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      RouteName(string(ing.GetUID()), host),
+			Name:      routeName(string(ing.GetUID()), host),
 			Namespace: svc.Namespace,
 			Labels: presources.UnionMaps(ing.GetLabels(), map[string]string{
 				networking.IngressLabelKey: string(ing.GetUID()),
@@ -139,7 +136,7 @@ func MakeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.Na
 	return route
 }
 
-func RouteName(uid, host string) string {
+func routeName(uid, host string) string {
 	return fmt.Sprintf("route-%s-%x", uid, hashHost(host))
 }
 
