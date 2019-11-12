@@ -394,7 +394,7 @@ func TestReconcile(t *testing.T) {
 	}))
 }
 
-/*func TestReconcile_EnableAutoTLS(t *testing.T) {
+func TestReconcile_EnableAutoTLS(t *testing.T) {
 	table := TableTest{{
 		Name:                    "update Gateway to match newly created Ingress",
 		SkipNamespaceValidation: true,
@@ -403,7 +403,7 @@ func TestReconcile(t *testing.T) {
 			// No Gateway servers match the given TLS of Ingress.
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 			originSecret("istio-system", "secret0"),
-			route(ingress("reconciling-ingress", 1234), "domain.com"),
+			route(ingressWithTLS("reconciling-ingress", 1234, ingressTLS), "domain.com", withTo("istio-ingressgateway")),
 		},
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
@@ -543,6 +543,7 @@ func TestReconcile(t *testing.T) {
 			// The namespace (`knative-serving`) of the origin secret is different
 			// from the namespace (`istio-system`) of Istio gateway service.
 			originSecret("knative-serving", "secret0"),
+			route(ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving")), "domain.com", withTo("istio-ingressgateway")),
 		},
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
@@ -619,7 +620,7 @@ func TestReconcile(t *testing.T) {
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []v1alpha3.Server{*withCredentialName(ingressTLSServer.DeepCopy(), targetSecretName), irrelevantServer}),
 			// The origin secret.
 			originSecret("knative-serving", "secret0"),
-			route(ingress("no-virtualservice-yet", 1234), "domain.com"),
+			route(ingress("no-virtualservice-yet", 1234), "domain.com", withTo("istio-ingressgateway")),
 
 			// The target secret that has the Data different from the origin secret. The Data should be reconciled.
 			&corev1.Secret{
@@ -809,7 +810,7 @@ func TestReconcile(t *testing.T) {
 			ingressLister: listers.GetIngressLister(),
 		}
 	}))
-}*/
+}
 
 func getGatewaysFromObjects(objects []runtime.Object) []*v1alpha3.Gateway {
 	gateways := []*v1alpha3.Gateway{}
@@ -975,7 +976,9 @@ func ingressWithTLSAndStatusClusterLocal(name string, generation int64, tls []v1
 	return ci
 }
 
-func route(ia v1alpha1.IngressAccessor, host string) *routev1.Route {
+type routeOption func(*routev1.Route)
+
+func route(ia v1alpha1.IngressAccessor, host string, options ...routeOption) *routev1.Route {
 	route := oresources.MakeRoute(ia, host, types.NamespacedName{
 		Namespace: "istio-system",
 		Name:      "test-ingressgateway",
@@ -988,7 +991,18 @@ func route(ia v1alpha1.IngressAccessor, host string) *routev1.Route {
 			}},
 		}},
 	}
+
+	for _, opt := range options {
+		opt(route)
+	}
+
 	return route
+}
+
+func withTo(svc string) routeOption {
+	return func(r *routev1.Route) {
+		r.Spec.To.Name = svc
+	}
 }
 
 func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
@@ -1031,7 +1045,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	return ctx, cancel, informers, controller, configMapWatcher
 }
 
-/*func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
+func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	ctx, cancel, informers, ctrl, watcher := newTestSetup(t)
 
 	grp := errgroup.Group{}
@@ -1050,7 +1064,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			t.Logf("Unexpected gateways: %v", gateways)
 			return HookIncomplete
 		}
-		expectedDomainInternal := newDomainInternal
+		expectedDomainInternal := "cluster-local-gateway.istio-system.svc.cluster.local"
 		if gateways[0].DomainInternal != expectedDomainInternal {
 			t.Logf("Expected gateway %q but got %q", expectedDomainInternal, gateways[0].DomainInternal)
 			return HookIncomplete
@@ -1098,6 +1112,8 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 			},
 		},
 	)
+	// cluster-local to decouple from route creation and status
+	ingress.Spec.Visibility = v1alpha1.IngressVisibilityClusterLocal
 	ingressClient := servingClient.NetworkingV1alpha1().Ingresses("test-ns")
 
 	// Create a ingress.
@@ -1116,7 +1132,7 @@ func newTestSetup(t *testing.T, configs ...*corev1.ConfigMap) (
 	if err := h.WaitForHooks(3 * time.Second); err != nil {
 		t.Error(err)
 	}
-}*/
+}
 
 func insertProbe(ia *v1alpha1.Ingress) *v1alpha1.Ingress {
 	ia = ia.DeepCopy()
