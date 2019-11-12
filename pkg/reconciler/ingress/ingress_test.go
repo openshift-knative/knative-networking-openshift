@@ -373,6 +373,25 @@ func TestReconcile(t *testing.T) {
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 			route(ingress("route-tests", 1234), "domain.com"),
 		},
+	}, {
+		Name:                    "remove wrong route",
+		Key:                     "test-ns/route-tests",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			ingressWithStatus("route-tests", 1234, ingressReady),
+			resources.MakeMeshVirtualService(insertProbe(ingress("route-tests", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
+			route(ingress("route-tests", 1234), "domain.com"),
+			route(ingress("route-tests", 1234), "domain2.com"),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "test-ns",
+				Verb:      "delete",
+			},
+			Name: "route-8a7e9a9d-fbc6-11e9-a88e-0261aff8d6d8-356235343161",
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
