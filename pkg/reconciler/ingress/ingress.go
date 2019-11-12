@@ -460,16 +460,17 @@ func (r *BaseIngressReconciler) reconcileVirtualServices(ctx context.Context, ia
 func (r *BaseIngressReconciler) reconcileDeletion(ctx context.Context, ra ReconcilerAccessor, ia v1alpha1.IngressAccessor) error {
 	logger := logging.FromContext(ctx)
 
-	// With no desired routes, all routes matching the selector will be removed.
-	if _, err := r.reconcileRoutes(ctx, ia, nil); err != nil {
-		return err
-	}
-
 	// If our Finalizer is first, delete the `Servers` from Gateway for this Ingress,
 	// and remove the finalizer.
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.Finalizer {
 		return nil
 	}
+
+	// With no desired routes, all routes matching the selector will be removed.
+	if _, err := r.reconcileRoutes(ctx, ia, nil); err != nil {
+		return err
+	}
+
 	istiocfg := config.FromContext(ctx).Istio
 	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ia.GetName())
 	for _, gws := range [][]config.Gateway{istiocfg.IngressGateways, istiocfg.LocalGateways} {
