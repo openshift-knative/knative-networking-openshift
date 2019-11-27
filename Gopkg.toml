@@ -19,7 +19,7 @@ required = [
 
 [[override]]
   name = "knative.dev/serving"
-  branch = "master"
+  revision = "a1e567f960cc100578a210369dc7e8ee762f3ce0"
 
 [[override]]
   name = "github.com/openshift/client-go"
