@@ -30,14 +30,14 @@ var (
 )
 
 // MakeRoutes creates OpenShift Routes from a Knative Ingress
-func MakeRoutes(ing networkingv1alpha1.IngressAccessor, lbs []networkingv1alpha1.LoadBalancerIngressStatus) ([]*routev1.Route, error) {
+func MakeRoutes(ing networkingv1alpha1.Ingress, lbs []networkingv1alpha1.LoadBalancerIngressStatus) ([]*routev1.Route, error) {
 	// Skip making routes when the annotation is specified.
 	if _, ok := ing.GetAnnotations()[DisableRouteAnnotation]; ok {
 		return nil, nil
 	}
 
 	// Skip purely local ingresses.
-	if ing.GetSpec().Visibility == networkingv1alpha1.IngressVisibilityClusterLocal {
+	if ing.Spec.Visibility == networkingv1alpha1.IngressVisibilityClusterLocal {
 		return nil, nil
 	}
 
@@ -47,7 +47,7 @@ func MakeRoutes(ing networkingv1alpha1.IngressAccessor, lbs []networkingv1alpha1
 	}
 
 	var routes []*routev1.Route
-	for _, rule := range ing.GetSpec().Rules {
+	for _, rule := range ing.Spec.Rules {
 		// Skip generating routes for cluster-local rules.
 		if rule.Visibility == networkingv1alpha1.IngressVisibilityClusterLocal {
 			continue
@@ -58,7 +58,6 @@ func MakeRoutes(ing networkingv1alpha1.IngressAccessor, lbs []networkingv1alpha1
 		if rule.HTTP != nil && len(rule.HTTP.Paths) > 0 && rule.HTTP.Paths[0].Timeout != nil {
 			timeout = rule.HTTP.Paths[0].Timeout.Duration
 		}
-
 		for _, host := range rule.Hosts {
 			// Ignore cluster-local domains.
 			if strings.HasSuffix(host, network.GetClusterDomainName()) {
@@ -96,7 +95,7 @@ func parseInternalDomainToService(domainInternal string) (types.NamespacedName, 
 	}, nil
 }
 
-func MakeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.NamespacedName, timeout time.Duration) *routev1.Route {
+func MakeRoute(ing networkingv1alpha1.Ingress, host string, svc types.NamespacedName, timeout time.Duration) *routev1.Route {
 	route := &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      routeName(string(ing.GetUID()), host),

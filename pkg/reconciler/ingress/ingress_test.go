@@ -23,6 +23,7 @@ import (
 	"time"
 
 	// Inject our fakes
+	fakerouteclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice/fake"
@@ -68,7 +69,6 @@ import (
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 
-	fakerouteclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client/fake"
 	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route/fake"
 	oresources "github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress/resources"
 )
@@ -399,6 +399,8 @@ func TestReconcile(t *testing.T) {
 			Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
 			virtualServiceLister: listers.GetVirtualServiceLister(),
 			gatewayLister:        listers.GetGatewayLister(),
+			routeLister:          listers.GetOpenshiftRouteLister(),
+			routeClient:          fakerouteclient.Get(ctx),
 			finalizer:            ingressFinalizer,
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
@@ -803,6 +805,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			virtualServiceLister: listers.GetVirtualServiceLister(),
 			gatewayLister:        listers.GetGatewayLister(),
 			secretLister:         listers.GetSecretLister(),
+			routeLister:          listers.GetOpenshiftRouteLister(),
+			routeClient:          fakerouteclient.Get(ctx),
 			tracker:              &NullTracker{},
 			finalizer:            ingressFinalizer,
 			// Enable reconciling gateway.
@@ -997,8 +1001,8 @@ func ingressWithTLSAndStatusClusterLocal(name string, generation int64, tls []v1
 
 type routeOption func(*routev1.Route)
 
-func route(ia v1alpha1.IngressAccessor, host string, options ...routeOption) *routev1.Route {
-	route := oresources.MakeRoute(ia, host, types.NamespacedName{
+func route(ia *v1alpha1.Ingress, host string, options ...routeOption) *routev1.Route {
+	route := oresources.MakeRoute(*ia, host, types.NamespacedName{
 		Namespace: "istio-system",
 		Name:      "test-ingressgateway",
 	}, defaultMaxRevisionTimeout)

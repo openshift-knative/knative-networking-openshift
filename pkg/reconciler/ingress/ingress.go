@@ -53,8 +53,6 @@ import (
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
 
-	routeclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client"
-	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route"
 	oresources "github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress/resources"
 	routev1 "github.com/openshift/api/route/v1"
 	routev1client "github.com/openshift/client-go/route/clientset/versioned"
@@ -98,118 +96,6 @@ var (
 	_ coreaccessor.SecretAccessor          = (*Reconciler)(nil)
 	_ istioaccessor.VirtualServiceAccessor = (*Reconciler)(nil)
 )
-
-// newInitializer creates an Ingress Reconciler and returns ReconcilerInitializer
-func newInitializer(ctx context.Context, cmw configmap.Watcher) ReconcilerInitializer {
-	ingressInformer := ingressinformer.Get(ctx)
-	r := &Reconciler{
-		BaseIngressReconciler: NewBaseIngressReconciler(ctx, controllerAgentName, ingressFinalizer, cmw),
-		ingressLister:         ingressInformer.Lister(),
-	}
-	return r
-}
-
-// SetTracker assigns the Tracker field
-func (r *Reconciler) SetTracker(tracker tracker.Interface) {
-	r.Tracker = tracker
-}
-
-// Init method performs initializations to ingress reconciler
-func (r *Reconciler) Init(ctx context.Context, cmw configmap.Watcher, impl *controller.Impl) {
-
-	SetupSecretTracker(ctx, r, impl)
-
-	r.Logger.Info("Setting up Ingress event handlers")
-	ingressInformer := ingressinformer.Get(ctx)
-	gatewayInformer := gatewayinformer.Get(ctx)
-	endpointsInformer := endpointsinformer.Get(ctx)
-	serviceInformer := serviceinformer.Get(ctx)
-	podInformer := podinformer.Get(ctx)
-	routeInformer := routeinformer.Get(ctx)
-
-	myFilterFunc := reconciler.AnnotationFilterFunc(networking.IngressClassAnnotationKey, network.IstioIngressClassName, true)
-	ingressHandler := cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.Enqueue),
-	}
-	ingressInformer.Informer().AddEventHandler(ingressHandler)
-
-	virtualServiceInformer := virtualserviceinformer.Get(ctx)
-	virtualServiceInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler:    controller.HandleAll(impl.EnqueueControllerOf),
-	})
-
-	routeInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: myFilterFunc,
-		Handler: controller.HandleAll(
-			impl.EnqueueLabelOfNamespaceScopedResource(serving.RouteNamespaceLabelKey, serving.RouteLabelKey)),
-	})
-
-	r.Logger.Info("Setting up ConfigMap receivers")
-	configsToResync := []interface{}{
-		&config.Istio{},
-		&network.Config{},
-	}
-	resyncIngressesOnConfigChange := configmap.TypeFilter(configsToResync...)(func(string, interface{}) {
-		impl.FilteredGlobalResync(myFilterFunc, ingressInformer.Informer())
-	})
-	configStore := config.NewStore(r.Logger.Named("config-store"), resyncIngressesOnConfigChange)
-	configStore.WatchConfigs(cmw)
-	r.ConfigStore = configStore
-
-	r.Logger.Info("Setting up StatusManager")
-	resyncOnIngressReady := func(ia v1alpha1.IngressAccessor) {
-		impl.EnqueueKey(types.NamespacedName{Namespace: ia.GetNamespace(), Name: ia.GetName()})
-	}
-	statusProber := NewStatusProber(
-		r.Logger.Named("status-manager"),
-		gatewayInformer.Lister(),
-		endpointsInformer.Lister(),
-		serviceInformer.Lister(),
-		resyncOnIngressReady)
-	r.StatusManager = statusProber
-	statusProber.Start(ctx.Done())
-
-	virtualServiceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// Cancel probing when a VirtualService is deleted
-		DeleteFunc: func(obj interface{}) {
-			vs, ok := obj.(*v1alpha3.VirtualService)
-			if ok {
-				statusProber.CancelVirtualServiceProbing(vs)
-			}
-		},
-	})
-	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		// Cancel probing when a Pod is deleted
-		DeleteFunc: func(obj interface{}) {
-			pod, ok := obj.(*corev1.Pod)
-			if ok {
-				statusProber.CancelPodProbing(pod)
-			}
-		},
-	})
-}
-
-// SetupSecretTracker initializes Secret Tracker
-func SetupSecretTracker(ctx context.Context, init ReconcilerInitializer, impl *controller.Impl) {
-
-	logger := logging.FromContext(ctx)
-	logger.Info("Setting up secret informer event handler")
-
-	// Create tracker
-	tracker := tracker.New(impl.EnqueueKey, controller.GetTrackerLease(ctx))
-	init.SetTracker(tracker)
-
-	// add secret event handler
-	secretInformer := secretinformer.Get(ctx)
-	secretInformer.Informer().AddEventHandler(controller.HandleAll(
-		controller.EnsureTypeMeta(
-			tracker.OnChanged,
-			corev1.SchemeGroupVersion.WithKind("Secret"),
-		),
-	))
-}
 
 // Reconcile compares the actual state with the desired, and attempts to
 // converge the two. It then updates the Status block of the Ingress resource
@@ -340,18 +226,18 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
 
-		desiredRoutes, err := oresources.MakeRoutes(ia, publicLbs)
+		desiredRoutes, err := oresources.MakeRoutes(*ia, publicLbs)
 		if err != nil {
 			return fmt.Errorf("failed to generate routes: %w", err)
 		}
-		routes, err := r.reconcileRoutes(ctx, ia, desiredRoutes)
+		routes, err := r.reconcileRoutes(ctx, *ia, desiredRoutes)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile routes: %w", err)
 		}
 		if allRoutesReady(routes) {
-			ia.GetStatus().MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+			ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 		} else {
-			ia.GetStatus().MarkLoadBalancerPending()
+			ia.Status.MarkLoadBalancerNotReady()
 
 		}
 	} else {
@@ -424,7 +310,7 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress
 	}
 
 	// With no desired routes, all routes matching the selector will be removed.
-	if _, err := r.reconcileRoutes(ctx, ia, nil); err != nil {
+	if _, err := r.reconcileRoutes(ctx, *ia, nil); err != nil {
 		return err
 	}
 
@@ -604,7 +490,7 @@ func enableReconcileGateway(ctx context.Context) bool {
 	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
 }
 
-func (r *BaseIngressReconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.IngressAccessor, desiredRoutes []*routev1.Route) ([]*routev1.Route, error) {
+func (r *Reconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.Ingress, desiredRoutes []*routev1.Route) ([]*routev1.Route, error) {
 	routes, err := r.routeLister.List(labels.SelectorFromSet(map[string]string{
 		networking.IngressLabelKey:     string(ia.GetUID()),
 		serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
@@ -642,7 +528,7 @@ func (r *BaseIngressReconciler) reconcileRoutes(ctx context.Context, ia v1alpha1
 	return reconciledRoutes, nil
 }
 
-func (r *BaseIngressReconciler) reconcileRoute(ctx context.Context, desiredRoute *routev1.Route, route *routev1.Route) (*routev1.Route, error) {
+func (r *Reconciler) reconcileRoute(ctx context.Context, desiredRoute *routev1.Route, route *routev1.Route) (*routev1.Route, error) {
 	logger := logging.FromContext(ctx)
 
 	if route == nil {
