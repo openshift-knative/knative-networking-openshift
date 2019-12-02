@@ -21,10 +21,6 @@ import (
 const (
 	TimeoutAnnotation      = "haproxy.router.openshift.io/timeout"
 	DisableRouteAnnotation = "serving.knative.openshift.io/disableRoute"
-	TerminationAnnotation  = "serving.knative.openshift.io/tlsMode"
-
-	// TLSTerminationAnnotation is an annotation to configure routes.spec.tls.termination
-	TLSTerminationAnnotation = "serving.knative.openshift.io/tlsTermination"
 )
 
 var (
@@ -121,18 +117,12 @@ func MakeRoute(ing networkingv1alpha1.IngressAccessor, host string, svc types.Na
 				Kind: "Service",
 				Name: svc.Name,
 			},
+			TLS: &routev1.TLSConfig{
+				Termination:                   routev1.TLSTerminationEdge,
+				InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
+			},
 		},
 	}
-
-	if terminationType, ok := ing.GetAnnotations()[TLSTerminationAnnotation]; ok {
-		switch strings.ToLower(terminationType) {
-		case "passthrough":
-			route.Spec.TLS = &routev1.TLSConfig{Termination: routev1.TLSTerminationPassthrough}
-			route.Spec.Port = &routev1.RoutePort{TargetPort: intstr.FromString("https")}
-		default:
-		}
-	}
-
 	return route
 }
 
