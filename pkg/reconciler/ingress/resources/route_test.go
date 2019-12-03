@@ -29,7 +29,7 @@ const (
 func TestMakeRoutes(t *testing.T) {
 	tests := []struct {
 		name    string
-		ingress networkingv1alpha1.Ingress
+		ingress *networkingv1alpha1.Ingress
 		want    []*routev1.Route
 		wantErr error
 	}{
@@ -41,14 +41,14 @@ func TestMakeRoutes(t *testing.T) {
 		{
 			name: "skip internal host name",
 			ingress: ingress(withRules(
-				rule(withHosts([]string{localDomain}))),
+				*rule(withHosts([]string{localDomain}))),
 			),
 			want: nil,
 		},
 		{
 			name: "valid, default timeout",
 			ingress: ingress(withRules(
-				rule(withHosts([]string{localDomain, externalDomain}))),
+				*rule(withHosts([]string{localDomain, externalDomain}))),
 			),
 			want: []*routev1.Route{{
 				ObjectMeta: metav1.ObjectMeta{
@@ -82,21 +82,21 @@ func TestMakeRoutes(t *testing.T) {
 		{
 			name: "valid but disabled",
 			ingress: ingress(withDisabledAnnotation, withRules(
-				rule(withHosts([]string{localDomain, externalDomain}))),
+				*rule(withHosts([]string{localDomain, externalDomain}))),
 			),
 			want: nil,
 		},
 		{
 			name: "valid but cluster-local",
 			ingress: ingress(withLocalVisibility, withRules(
-				rule(withHosts([]string{localDomain, externalDomain}))),
+				*rule(withHosts([]string{localDomain, externalDomain}))),
 			),
 			want: nil,
 		},
 		{
 			name: "valid, with timeout",
 			ingress: ingress(withRules(
-				rule(withHosts([]string{localDomain, externalDomain}), withTimeout(1*time.Hour))),
+				*rule(withHosts([]string{localDomain, externalDomain}), withTimeout(1*time.Hour))),
 			),
 			want: []*routev1.Route{{
 				ObjectMeta: metav1.ObjectMeta{
@@ -131,8 +131,8 @@ func TestMakeRoutes(t *testing.T) {
 		{
 			name: "valid, multiple rules",
 			ingress: ingress(withRules(
-				rule(withHosts([]string{localDomain, externalDomain})),
-				rule(withHosts([]string{localDomain, externalDomain2})),
+				*rule(withHosts([]string{localDomain, externalDomain})),
+				*rule(withHosts([]string{localDomain, externalDomain2})),
 			)),
 			want: []*routev1.Route{{
 				ObjectMeta: metav1.ObjectMeta{
@@ -195,8 +195,8 @@ func TestMakeRoutes(t *testing.T) {
 		{
 			name: "valid, multiple rules, one local",
 			ingress: ingress(withRules(
-				rule(withHosts([]string{localDomain, externalDomain}), withLocalVisibilityRule),
-				rule(withHosts([]string{localDomain, externalDomain2})),
+				*rule(withHosts([]string{localDomain, externalDomain}), withLocalVisibilityRule),
+				*rule(withHosts([]string{localDomain, externalDomain2})),
 			)),
 			want: []*routev1.Route{{
 				ObjectMeta: metav1.ObjectMeta{
@@ -230,7 +230,7 @@ func TestMakeRoutes(t *testing.T) {
 		{
 			name: "invalid LB domain",
 			ingress: ingress(withLBInternalDomain("not.a.private.name"), withRules(
-				rule(withHosts([]string{localDomain, externalDomain}))),
+				*rule(withHosts([]string{localDomain, externalDomain}))),
 			),
 			wantErr: ErrNoValidLoadbalancerDomain,
 		},
@@ -238,7 +238,7 @@ func TestMakeRoutes(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			routes, err := MakeRoutes(test.ingress, test.ingress.Status.PublicLoadBalancer.Ingress)
+			routes, err := MakeRoutes(*test.ingress, test.ingress.Status.PublicLoadBalancer.Ingress)
 			if test.want != nil && !cmp.Equal(routes, test.want) {
 				t.Errorf("got = %v, want: %v\ndiff: %s", routes, test.want, cmp.Diff(routes, test.want))
 			}
@@ -249,8 +249,8 @@ func TestMakeRoutes(t *testing.T) {
 	}
 }
 
-func ingress(options ...ingressOption) networkingv1alpha1.Ingress {
-	ing := networkingv1alpha1.Ingress{
+func ingress(options ...ingressOption) *networkingv1alpha1.Ingress {
+	ing := &networkingv1alpha1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				serving.RouteLabelKey:          "route1",
@@ -271,37 +271,35 @@ func ingress(options ...ingressOption) networkingv1alpha1.Ingress {
 			},
 		},
 	}
-
 	for _, opt := range options {
 		opt(ing)
 	}
-
 	return ing
 }
 
-func rule(options ...ruleOption) networkingv1alpha1.IngressRule {
-	rule := networkingv1alpha1.IngressRule{
+func rule(options ...ruleOption) *networkingv1alpha1.IngressRule {
+	rule := &networkingv1alpha1.IngressRule{
 		HTTP: &networkingv1alpha1.HTTPIngressRuleValue{
 			Paths: []networkingv1alpha1.HTTPIngressPath{{}},
 		},
 	}
 
 	for _, opt := range options {
-		opt(&rule)
+		opt(rule)
 	}
 
 	return rule
 }
 
-type ingressOption func(networkingv1alpha1.Ingress)
+type ingressOption func(*networkingv1alpha1.Ingress)
 
 func withRules(rules ...networkingv1alpha1.IngressRule) ingressOption {
-	return func(ing networkingv1alpha1.Ingress) {
+	return func(ing *networkingv1alpha1.Ingress) {
 		ing.Spec.Rules = rules
 	}
 }
 
-func withDisabledAnnotation(ing networkingv1alpha1.Ingress) {
+func withDisabledAnnotation(ing *networkingv1alpha1.Ingress) {
 	annos := ing.GetAnnotations()
 	if annos == nil {
 		annos = map[string]string{}
@@ -310,12 +308,12 @@ func withDisabledAnnotation(ing networkingv1alpha1.Ingress) {
 	ing.SetAnnotations(annos)
 }
 
-func withLocalVisibility(ing networkingv1alpha1.Ingress) {
+func withLocalVisibility(ing *networkingv1alpha1.Ingress) {
 	ing.Spec.Visibility = networkingv1alpha1.IngressVisibilityClusterLocal
 }
 
 func withLBInternalDomain(domain string) ingressOption {
-	return func(ing networkingv1alpha1.Ingress) {
+	return func(ing *networkingv1alpha1.Ingress) {
 		ing.Status.PublicLoadBalancer.Ingress[0].DomainInternal = domain
 	}
 }
