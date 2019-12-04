@@ -1,0 +1,11 @@
+diff --git a/vendor/knative.dev/pkg/reconciler/testing/sorter.go b/vendor/knative.dev/pkg/reconciler/testing/sorter.go
+index 2c1e9192..27061b69 100644
+--- a/vendor/knative.dev/pkg/reconciler/testing/sorter.go
++++ b/vendor/knative.dev/pkg/reconciler/testing/sorter.go
+@@ -92,5 +92,5 @@ func (o *ObjectSorter) IndexerForObjectType(obj runtime.Object) cache.Indexer {
+ }
+ 
+ func emptyIndexer() cache.Indexer {
+-	return cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
++	return cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+ }
