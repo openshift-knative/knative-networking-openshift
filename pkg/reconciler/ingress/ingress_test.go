@@ -392,6 +392,68 @@ func TestReconcile(t *testing.T) {
 			},
 			Name: "route-8a7e9a9d-fbc6-11e9-a88e-0261aff8d6d8-356235343161",
 		}},
+	}, {
+		Name:                    "remove route in wrong ns and create it in proper ns",
+		Key:                     "test-ns/route-tests",
+		SkipNamespaceValidation: true,
+		Objects: []runtime.Object{
+			resources.MakeMeshVirtualService(insertProbe(ingress("route-tests", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/" + networking.KnativeIngressGateway}, nil)),
+			ingressWithStatus("route-tests", 1234, ingressReady),
+			route(ingress("route-tests", 1234), "domain.com", withNamespace("wrong-ns")),
+		},
+		WantCreates: []runtime.Object{
+			oresources.MakeRoute(*ingress("route-tests", 1234), "domain.com", types.NamespacedName{
+				Namespace: "istio-system",
+				Name:      "test-ingressgateway",
+			}, defaultMaxRevisionTimeout),
+		},
+		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
+			Object: ingressWithStatus("route-tests", 1234,
+				v1alpha1.IngressStatus{
+					Status: duckv1.Status{
+						Conditions: duckv1.Conditions{{
+							Type:   v1alpha1.IngressConditionLoadBalancerReady,
+							Status: corev1.ConditionTrue,
+						}, {
+							Type:   v1alpha1.IngressConditionNetworkConfigured,
+							Status: corev1.ConditionTrue,
+						}, {
+							Type:    v1alpha1.IngressConditionReady,
+							Status:  corev1.ConditionUnknown,
+							Reason:  notReadyOpenshiftIngresReason,
+							Message: notReadyOpenshiftIngresMessage,
+						}},
+					},
+					LoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
+						},
+					},
+					PublicLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{DomainInternal: pkgnet.GetServiceHostname("test-ingressgateway", "istio-system")},
+						},
+					},
+					PrivateLoadBalancer: &v1alpha1.LoadBalancerStatus{
+						Ingress: []v1alpha1.LoadBalancerIngressStatus{
+							{MeshOnly: true},
+						},
+					},
+				},
+			),
+		}},
+		WantEvents: []string{
+			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "route-tests"),
+		},
+		WantDeletes: []clientgotesting.DeleteActionImpl{{
+			ActionImpl: clientgotesting.ActionImpl{
+				Namespace: "wrong-ns",
+				Verb:      "delete",
+			},
+			Name: "route-8a7e9a9d-fbc6-11e9-a88e-0261aff8d6d8-656566326438",
+		}},
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -1025,6 +1087,12 @@ func route(ia *v1alpha1.Ingress, host string, options ...routeOption) *routev1.R
 func withTo(svc string) routeOption {
 	return func(r *routev1.Route) {
 		r.Spec.To.Name = svc
+	}
+}
+
+func withNamespace(namespace string) routeOption {
+	return func(r *routev1.Route) {
+		r.ObjectMeta.Namespace = namespace
 	}
 }
 

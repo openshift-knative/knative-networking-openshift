@@ -62,6 +62,9 @@ import (
 const (
 	notReconciledReason  = "ReconcileIngressFailed"
 	notReconciledMessage = "Ingress reconciliation failed"
+
+	notReadyOpenshiftIngresReason  = "OpenShiftIngressNotReady"
+	notReadyOpenshiftIngresMessage = "OpenShift Ingress is not ready"
 )
 
 // ingressfinalizer is the name that we put into the resource finalizer list, e.g.
@@ -237,8 +240,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 		if allRoutesReady(routes) {
 			ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 		} else {
-			ia.Status.MarkLoadBalancerNotReady()
-
+			ia.Status.MarkIngressNotReady(notReadyOpenshiftIngresReason, notReadyOpenshiftIngresMessage)
 		}
 	} else {
 		ia.Status.MarkLoadBalancerNotReady()
