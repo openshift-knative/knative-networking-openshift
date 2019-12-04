@@ -503,20 +503,21 @@ func (r *Reconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.Ingress, d
 	// Create a map of all existing routes for quick access.
 	existingRoutes := make(map[string]*routev1.Route, len(routes))
 	for _, route := range routes {
-		existingRoutes[route.Name] = route
+		existingRoutes[route.Namespace+"/"+route.Name] = route
 	}
 
 	reconciledRoutes := make([]*routev1.Route, 0, len(desiredRoutes))
 	for _, route := range desiredRoutes {
+		namespacedRoute := route.Namespace + "/" + route.Name
 		// If there's no existing routes, the reconcile function handles that gracefully.
-		reconciledRoute, err := r.reconcileRoute(ctx, route, existingRoutes[route.Name])
+		reconciledRoute, err := r.reconcileRoute(ctx, route, existingRoutes[namespacedRoute])
 		if err != nil {
 			return nil, fmt.Errorf("failed to reconcile route: %w", err)
 		}
 		reconciledRoutes = append(reconciledRoutes, reconciledRoute)
 
 		// Remove key from map of existing routes to find those that we need to delete.
-		delete(existingRoutes, route.Name)
+		delete(existingRoutes, namespacedRoute)
 	}
 
 	for _, route := range existingRoutes {
