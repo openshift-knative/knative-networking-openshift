@@ -63,8 +63,8 @@ const (
 	notReconciledReason  = "ReconcileIngressFailed"
 	notReconciledMessage = "Ingress reconciliation failed"
 
-	notReadyOpenshiftIngresReason  = "OpenShiftIngressNotReady"
-	notReadyOpenshiftIngresMessage = "OpenShift Ingress is not ready"
+	notReadyOpenshiftIngressReason  = "OpenShiftIngressNotReady"
+	notReadyOpenshiftIngressMessage = "OpenShift Ingress is not ready"
 )
 
 // ingressfinalizer is the name that we put into the resource finalizer list, e.g.
@@ -240,7 +240,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 		if allRoutesReady(routes) {
 			ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
 		} else {
-			ia.Status.MarkIngressNotReady(notReadyOpenshiftIngresReason, notReadyOpenshiftIngresMessage)
+			ia.Status.MarkIngressNotReady(notReadyOpenshiftIngressReason, notReadyOpenshiftIngressMessage)
 		}
 	} else {
 		ia.Status.MarkLoadBalancerNotReady()
@@ -503,14 +503,14 @@ func (r *Reconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.Ingress, d
 	}
 
 	// Create a map of all existing routes for quick access.
-	existingRoutes := make(map[string]*routev1.Route, len(routes))
+	existingRoutes := make(map[types.NamespacedName]*routev1.Route, len(routes))
 	for _, route := range routes {
-		existingRoutes[route.Namespace+"/"+route.Name] = route
+		existingRoutes[types.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = route
 	}
 
 	reconciledRoutes := make([]*routev1.Route, 0, len(desiredRoutes))
 	for _, route := range desiredRoutes {
-		namespacedRoute := route.Namespace + "/" + route.Name
+		namespacedRoute := types.NamespacedName{Namespace: route.Namespace, Name: route.Name}
 		// If there's no existing routes, the reconcile function handles that gracefully.
 		reconciledRoute, err := r.reconcileRoute(ctx, route, existingRoutes[namespacedRoute])
 		if err != nil {

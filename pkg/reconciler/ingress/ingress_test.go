@@ -422,8 +422,8 @@ func TestReconcile(t *testing.T) {
 						}, {
 							Type:    v1alpha1.IngressConditionReady,
 							Status:  corev1.ConditionUnknown,
-							Reason:  notReadyOpenshiftIngresReason,
-							Message: notReadyOpenshiftIngresMessage,
+							Reason:  notReadyOpenshiftIngressReason,
+							Message: notReadyOpenshiftIngressMessage,
 						}},
 					},
 					LoadBalancer: &v1alpha1.LoadBalancerStatus{

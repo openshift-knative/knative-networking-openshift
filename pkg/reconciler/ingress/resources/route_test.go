@@ -32,209 +32,199 @@ func TestMakeRoutes(t *testing.T) {
 		ingress *networkingv1alpha1.Ingress
 		want    []*routev1.Route
 		wantErr error
-	}{
-		{
-			name:    "no rules",
-			ingress: ingress(),
-			want:    nil,
-		},
-		{
-			name: "skip internal host name",
-			ingress: ingress(withRules(
-				*rule(withHosts([]string{localDomain}))),
-			),
-			want: nil,
-		},
-		{
-			name: "valid, default timeout",
-			ingress: ingress(withRules(
-				*rule(withHosts([]string{localDomain, externalDomain}))),
-			),
-			want: []*routev1.Route{{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						networking.IngressLabelKey:     uid,
-						serving.RouteLabelKey:          "route1",
-						serving.RouteNamespaceLabelKey: "default",
-					},
-					Annotations: map[string]string{
-						TimeoutAnnotation: "600s",
-					},
-					Namespace: lbNamespace,
-					Name:      routeName(uid, externalDomain),
+	}{{
+		name:    "no rules",
+		ingress: ingress(),
+		want:    nil,
+	}, {
+		name: "skip internal host name",
+		ingress: ingress(withRules(
+			*rule(withHosts([]string{localDomain}))),
+		),
+		want: nil,
+	}, {
+		name: "valid, default timeout",
+		ingress: ingress(withRules(
+			*rule(withHosts([]string{localDomain, externalDomain}))),
+		),
+		want: []*routev1.Route{{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					networking.IngressLabelKey:     uid,
+					serving.RouteLabelKey:          "route1",
+					serving.RouteNamespaceLabelKey: "default",
 				},
-				Spec: routev1.RouteSpec{
-					Host: externalDomain,
-					To: routev1.RouteTargetReference{
-						Kind: "Service",
-						Name: lbService,
-					},
-					Port: &routev1.RoutePort{
-						TargetPort: intstr.FromString("http2"),
-					},
-					TLS: &routev1.TLSConfig{
-						Termination:                   routev1.TLSTerminationEdge,
-						InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
-					},
+				Annotations: map[string]string{
+					TimeoutAnnotation: "600s",
 				},
-			}},
-		},
-		{
-			name: "valid but disabled",
-			ingress: ingress(withDisabledAnnotation, withRules(
-				*rule(withHosts([]string{localDomain, externalDomain}))),
-			),
-			want: nil,
-		},
-		{
-			name: "valid but cluster-local",
-			ingress: ingress(withLocalVisibility, withRules(
-				*rule(withHosts([]string{localDomain, externalDomain}))),
-			),
-			want: nil,
-		},
-		{
-			name: "valid, with timeout",
-			ingress: ingress(withRules(
-				*rule(withHosts([]string{localDomain, externalDomain}), withTimeout(1*time.Hour))),
-			),
-			want: []*routev1.Route{{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						networking.IngressLabelKey:     uid,
-						serving.RouteLabelKey:          "route1",
-						serving.RouteNamespaceLabelKey: "default",
-					},
-					Annotations: map[string]string{
-						TimeoutAnnotation: "3600s",
-					},
-					Namespace: lbNamespace,
-					Name:      routeName(uid, externalDomain),
+				Namespace: lbNamespace,
+				Name:      routeName(uid, externalDomain),
+			},
+			Spec: routev1.RouteSpec{
+				Host: externalDomain,
+				To: routev1.RouteTargetReference{
+					Kind: "Service",
+					Name: lbService,
 				},
-				Spec: routev1.RouteSpec{
-					Host: externalDomain,
-					To: routev1.RouteTargetReference{
-						Kind: "Service",
-						Name: lbService,
-					},
-					Port: &routev1.RoutePort{
-						TargetPort: intstr.FromString("http2"),
-					},
+				Port: &routev1.RoutePort{
+					TargetPort: intstr.FromString("http2"),
+				},
+				TLS: &routev1.TLSConfig{
+					Termination:                   routev1.TLSTerminationEdge,
+					InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
+				},
+			},
+		}},
+	}, {
+		name: "valid but disabled",
+		ingress: ingress(withDisabledAnnotation, withRules(
+			*rule(withHosts([]string{localDomain, externalDomain}))),
+		),
+		want: nil,
+	}, {
+		name: "valid but cluster-local",
+		ingress: ingress(withLocalVisibility, withRules(
+			*rule(withHosts([]string{localDomain, externalDomain}))),
+		),
+		want: nil,
+	}, {
+		name: "valid, with timeout",
+		ingress: ingress(withRules(
+			*rule(withHosts([]string{localDomain, externalDomain}), withTimeout(1*time.Hour))),
+		),
+		want: []*routev1.Route{{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					networking.IngressLabelKey:     uid,
+					serving.RouteLabelKey:          "route1",
+					serving.RouteNamespaceLabelKey: "default",
+				},
+				Annotations: map[string]string{
+					TimeoutAnnotation: "3600s",
+				},
+				Namespace: lbNamespace,
+				Name:      routeName(uid, externalDomain),
+			},
+			Spec: routev1.RouteSpec{
+				Host: externalDomain,
+				To: routev1.RouteTargetReference{
+					Kind: "Service",
+					Name: lbService,
+				},
+				Port: &routev1.RoutePort{
+					TargetPort: intstr.FromString("http2"),
+				},
 
-					TLS: &routev1.TLSConfig{
-						Termination:                   routev1.TLSTerminationEdge,
-						InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
-					},
+				TLS: &routev1.TLSConfig{
+					Termination:                   routev1.TLSTerminationEdge,
+					InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
 				},
-			}},
-		},
-		{
-			name: "valid, multiple rules",
-			ingress: ingress(withRules(
-				*rule(withHosts([]string{localDomain, externalDomain})),
-				*rule(withHosts([]string{localDomain, externalDomain2})),
-			)),
-			want: []*routev1.Route{{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						networking.IngressLabelKey:     uid,
-						serving.RouteLabelKey:          "route1",
-						serving.RouteNamespaceLabelKey: "default",
-					},
-					Annotations: map[string]string{
-						TimeoutAnnotation: "600s",
-					},
-					Namespace: lbNamespace,
-					Name:      routeName(uid, externalDomain),
+			},
+		}},
+	}, {
+		name: "valid, multiple rules",
+		ingress: ingress(withRules(
+			*rule(withHosts([]string{localDomain, externalDomain})),
+			*rule(withHosts([]string{localDomain, externalDomain2})),
+		)),
+		want: []*routev1.Route{{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					networking.IngressLabelKey:     uid,
+					serving.RouteLabelKey:          "route1",
+					serving.RouteNamespaceLabelKey: "default",
 				},
-				Spec: routev1.RouteSpec{
-					Host: externalDomain,
-					To: routev1.RouteTargetReference{
-						Kind: "Service",
-						Name: lbService,
-					},
-					Port: &routev1.RoutePort{
-						TargetPort: intstr.FromString("http2"),
-					},
+				Annotations: map[string]string{
+					TimeoutAnnotation: "600s",
+				},
+				Namespace: lbNamespace,
+				Name:      routeName(uid, externalDomain),
+			},
+			Spec: routev1.RouteSpec{
+				Host: externalDomain,
+				To: routev1.RouteTargetReference{
+					Kind: "Service",
+					Name: lbService,
+				},
+				Port: &routev1.RoutePort{
+					TargetPort: intstr.FromString("http2"),
+				},
 
-					TLS: &routev1.TLSConfig{
-						Termination:                   routev1.TLSTerminationEdge,
-						InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
-					},
+				TLS: &routev1.TLSConfig{
+					Termination:                   routev1.TLSTerminationEdge,
+					InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
 				},
-			}, {
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						networking.IngressLabelKey:     uid,
-						serving.RouteLabelKey:          "route1",
-						serving.RouteNamespaceLabelKey: "default",
-					},
-					Annotations: map[string]string{
-						TimeoutAnnotation: "600s",
-					},
-					Namespace: lbNamespace,
-					Name:      routeName(uid, externalDomain2),
+			},
+		}, {
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					networking.IngressLabelKey:     uid,
+					serving.RouteLabelKey:          "route1",
+					serving.RouteNamespaceLabelKey: "default",
 				},
-				Spec: routev1.RouteSpec{
-					Host: externalDomain2,
-					To: routev1.RouteTargetReference{
-						Kind: "Service",
-						Name: lbService,
-					},
-					Port: &routev1.RoutePort{
-						TargetPort: intstr.FromString("http2"),
-					},
+				Annotations: map[string]string{
+					TimeoutAnnotation: "600s",
+				},
+				Namespace: lbNamespace,
+				Name:      routeName(uid, externalDomain2),
+			},
+			Spec: routev1.RouteSpec{
+				Host: externalDomain2,
+				To: routev1.RouteTargetReference{
+					Kind: "Service",
+					Name: lbService,
+				},
+				Port: &routev1.RoutePort{
+					TargetPort: intstr.FromString("http2"),
+				},
 
-					TLS: &routev1.TLSConfig{
-						Termination:                   routev1.TLSTerminationEdge,
-						InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
-					},
+				TLS: &routev1.TLSConfig{
+					Termination:                   routev1.TLSTerminationEdge,
+					InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
 				},
-			}},
-		},
-		{
-			name: "valid, multiple rules, one local",
-			ingress: ingress(withRules(
-				*rule(withHosts([]string{localDomain, externalDomain}), withLocalVisibilityRule),
-				*rule(withHosts([]string{localDomain, externalDomain2})),
-			)),
-			want: []*routev1.Route{{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						networking.IngressLabelKey:     uid,
-						serving.RouteLabelKey:          "route1",
-						serving.RouteNamespaceLabelKey: "default",
-					},
-					Annotations: map[string]string{
-						TimeoutAnnotation: "600s",
-					},
-					Namespace: lbNamespace,
-					Name:      routeName(uid, externalDomain2),
+			},
+		}},
+	}, {
+		name: "valid, multiple rules, one local",
+		ingress: ingress(withRules(
+			*rule(withHosts([]string{localDomain, externalDomain}), withLocalVisibilityRule),
+			*rule(withHosts([]string{localDomain, externalDomain2})),
+		)),
+		want: []*routev1.Route{{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: map[string]string{
+					networking.IngressLabelKey:     uid,
+					serving.RouteLabelKey:          "route1",
+					serving.RouteNamespaceLabelKey: "default",
 				},
-				Spec: routev1.RouteSpec{
-					Host: externalDomain2,
-					To: routev1.RouteTargetReference{
-						Kind: "Service",
-						Name: lbService,
-					},
-					Port: &routev1.RoutePort{
-						TargetPort: intstr.FromString("http2"),
-					},
-					TLS: &routev1.TLSConfig{
-						Termination:                   routev1.TLSTerminationEdge,
-						InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
-					},
+				Annotations: map[string]string{
+					TimeoutAnnotation: "600s",
 				},
-			}},
-		},
-		{
-			name: "invalid LB domain",
-			ingress: ingress(withLBInternalDomain("not.a.private.name"), withRules(
-				*rule(withHosts([]string{localDomain, externalDomain}))),
-			),
-			wantErr: ErrNoValidLoadbalancerDomain,
-		},
-	}
+				Namespace: lbNamespace,
+				Name:      routeName(uid, externalDomain2),
+			},
+			Spec: routev1.RouteSpec{
+				Host: externalDomain2,
+				To: routev1.RouteTargetReference{
+					Kind: "Service",
+					Name: lbService,
+				},
+				Port: &routev1.RoutePort{
+					TargetPort: intstr.FromString("http2"),
+				},
+				TLS: &routev1.TLSConfig{
+					Termination:                   routev1.TLSTerminationEdge,
+					InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyAllow,
+				},
+			},
+		}},
+	}, {
+		name: "invalid LB domain",
+		ingress: ingress(withLBInternalDomain("not.a.private.name"), withRules(
+			*rule(withHosts([]string{localDomain, externalDomain}))),
+		),
+		wantErr: ErrNoValidLoadbalancerDomain,
+	}}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
