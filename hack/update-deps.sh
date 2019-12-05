@@ -22,5 +22,5 @@ rm -rf vendor
 dep ensure -v
 
 git apply hack/maistra-codegen.patch
-git apply hack/pkg-codegen.patch
-git apply hack/serving-codegen.patch
+git apply hack/pkg-indexer.patch
+git apply hack/serving-listers.patch
