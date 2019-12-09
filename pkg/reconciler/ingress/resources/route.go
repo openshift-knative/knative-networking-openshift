@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/pkg/kmeta"
 	"knative.dev/pkg/network"
 	defaults "knative.dev/serving/pkg/apis/config"
 	"knative.dev/serving/pkg/apis/networking"
@@ -107,7 +106,6 @@ func MakeRoute(ing networkingv1alpha1.Ingress, host string, svc types.Namespaced
 			Annotations: presources.UnionMaps(ing.GetAnnotations(), map[string]string{
 				TimeoutAnnotation: fmt.Sprintf("%ds", int(timeout.Seconds())),
 			}),
-			OwnerReferences: []metav1.OwnerReference{*kmeta.NewControllerRef(&ing)},
 		},
 		Spec: routev1.RouteSpec{
 			Host: host,

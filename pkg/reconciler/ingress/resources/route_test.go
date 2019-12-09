@@ -9,7 +9,6 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/networking"
 	networkingv1alpha1 "knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
@@ -60,14 +59,6 @@ func TestMakeRoutes(t *testing.T) {
 				},
 				Namespace: lbNamespace,
 				Name:      routeName(uid, externalDomain),
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         "networking.internal.knative.dev/v1alpha1",
-					Kind:               "Ingress",
-					Name:               "ingress",
-					UID:                uid,
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}},
 			},
 			Spec: routev1.RouteSpec{
 				Host: externalDomain,
@@ -113,14 +104,6 @@ func TestMakeRoutes(t *testing.T) {
 				},
 				Namespace: lbNamespace,
 				Name:      routeName(uid, externalDomain),
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         "networking.internal.knative.dev/v1alpha1",
-					Kind:               "Ingress",
-					Name:               "ingress",
-					UID:                uid,
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}},
 			},
 			Spec: routev1.RouteSpec{
 				Host: externalDomain,
@@ -156,14 +139,6 @@ func TestMakeRoutes(t *testing.T) {
 				},
 				Namespace: lbNamespace,
 				Name:      routeName(uid, externalDomain),
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         "networking.internal.knative.dev/v1alpha1",
-					Kind:               "Ingress",
-					Name:               "ingress",
-					UID:                uid,
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}},
 			},
 			Spec: routev1.RouteSpec{
 				Host: externalDomain,
@@ -192,14 +167,6 @@ func TestMakeRoutes(t *testing.T) {
 				},
 				Namespace: lbNamespace,
 				Name:      routeName(uid, externalDomain2),
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         "networking.internal.knative.dev/v1alpha1",
-					Kind:               "Ingress",
-					Name:               "ingress",
-					UID:                uid,
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}},
 			},
 			Spec: routev1.RouteSpec{
 				Host: externalDomain2,
@@ -235,14 +202,6 @@ func TestMakeRoutes(t *testing.T) {
 				},
 				Namespace: lbNamespace,
 				Name:      routeName(uid, externalDomain2),
-				OwnerReferences: []metav1.OwnerReference{{
-					APIVersion:         "networking.internal.knative.dev/v1alpha1",
-					Kind:               "Ingress",
-					Name:               "ingress",
-					UID:                uid,
-					Controller:         ptr.Bool(true),
-					BlockOwnerDeletion: ptr.Bool(true),
-				}},
 			},
 			Spec: routev1.RouteSpec{
 				Host: externalDomain2,
