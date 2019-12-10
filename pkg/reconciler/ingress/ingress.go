@@ -52,11 +52,19 @@ import (
 	kaccessor "knative.dev/serving/pkg/reconciler/accessor"
 	coreaccessor "knative.dev/serving/pkg/reconciler/accessor/core"
 	istioaccessor "knative.dev/serving/pkg/reconciler/accessor/istio"
+
+	oresources "github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress/resources"
+	routev1 "github.com/openshift/api/route/v1"
+	routev1client "github.com/openshift/client-go/route/clientset/versioned"
+	routev1listers "github.com/openshift/client-go/route/listers/route/v1"
 )
 
 const (
 	notReconciledReason  = "ReconcileIngressFailed"
 	notReconciledMessage = "Ingress reconciliation failed"
+
+	notReadyOpenshiftIngressReason  = "OpenShiftIngressNotReady"
+	notReadyOpenshiftIngressMessage = "OpenShift Ingress is not ready"
 )
 
 // ingressfinalizer is the name that we put into the resource finalizer list, e.g.
@@ -66,6 +74,8 @@ const (
 var (
 	ingressResource  = v1alpha1.Resource("ingresses")
 	ingressFinalizer = ingressResource.String()
+
+	routeFinalizer = "ocp-ingress"
 )
 
 // Reconciler implements the control loop for the Ingress resources.
@@ -76,10 +86,13 @@ type Reconciler struct {
 	gatewayLister        istiolisters.GatewayLister
 	secretLister         corev1listers.SecretLister
 	ingressLister        listers.IngressLister
+	routeLister          routev1listers.RouteLister
+	routeClient          routev1client.Interface
 
 	configStore reconciler.ConfigStore
 	tracker     tracker.Interface
 	finalizer   string
+	rfinalizer  string
 
 	statusManager StatusManager
 }
@@ -146,7 +159,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	if ia.GetDeletionTimestamp() != nil {
-		return r.reconcileDeletion(ctx, ia)
+		// Actually reconcileDeletion is not used in downstream because enableReconcileGateway is not supported.
+		if err := r.reconcileDeletion(ctx, ia); err != nil {
+			return err
+		}
+		return r.reconcileRouteDeletion(ctx, ia)
 	}
 
 	// We may be reading a version of the object that was stored at an older version
@@ -213,11 +230,28 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	if err != nil {
 		return fmt.Errorf("failed to probe Ingress %s/%s: %w", ia.GetNamespace(), ia.GetName(), err)
 	}
+
 	if ready {
 		lbs := getLBStatus(gatewayServiceURLFromContext(ctx, ia))
 		publicLbs := getLBStatus(publicGatewayServiceURLFromContext(ctx))
 		privateLbs := getLBStatus(privateGatewayServiceURLFromContext(ctx))
-		ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+
+		desiredRoutes, err := oresources.MakeRoutes(*ia, publicLbs)
+		if err != nil {
+			return fmt.Errorf("failed to generate routes: %w", err)
+		}
+		routes, err := r.reconcileRoutes(ctx, *ia, desiredRoutes)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile routes: %w", err)
+		}
+		if err := r.ensureRouteFinalizer(ia); err != nil {
+			return fmt.Errorf("failed to add finalizer: %w", err)
+		}
+		if allRoutesReady(routes) {
+			ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
+		} else {
+			ia.Status.MarkIngressNotReady(notReadyOpenshiftIngressReason, notReadyOpenshiftIngressMessage)
+		}
 	} else {
 		ia.Status.MarkLoadBalancerNotReady()
 	}
@@ -278,10 +312,29 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 	return nil
 }
 
+func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
+	logger := logging.FromContext(ctx)
+
+	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.rfinalizer {
+		return nil
+	}
+
+	// With no desired routes, all routes matching the selector will be removed.
+	if _, err := r.reconcileRoutes(ctx, *ia, nil); err != nil {
+		return err
+	}
+
+	// Update the Ingress to remove the finalizer.
+	logger.Info("Removing finalizer ", r.rfinalizer)
+	ia.SetFinalizers(ia.GetFinalizers()[1:])
+	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia)
+	return err
+}
+
 func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 
-	// If our finalizer is first, delete the `Servers` from Gateway for this Ingress,
+	// If our Finalizer is first, delete the `Servers` from Gateway for this Ingress,
 	// and remove the finalizer.
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.finalizer {
 		return nil
@@ -460,4 +513,113 @@ func getLBStatus(gatewayServiceURL string) []v1alpha1.LoadBalancerIngressStatus 
 
 func enableReconcileGateway(ctx context.Context) bool {
 	return config.FromContext(ctx).Network.AutoTLS || config.FromContext(ctx).Istio.ReconcileExternalGateway
+}
+
+func (r *Reconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.Ingress, desiredRoutes []*routev1.Route) ([]*routev1.Route, error) {
+	routes, err := r.routeLister.List(labels.SelectorFromSet(map[string]string{
+		networking.IngressLabelKey:     string(ia.GetUID()),
+		serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
+		serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey],
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list routes: %w", err)
+	}
+
+	// Create a map of all existing routes for quick access.
+	existingRoutes := make(map[types.NamespacedName]*routev1.Route, len(routes))
+	for _, route := range routes {
+		existingRoutes[types.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = route
+	}
+
+	reconciledRoutes := make([]*routev1.Route, 0, len(desiredRoutes))
+	for _, route := range desiredRoutes {
+		namespacedRoute := types.NamespacedName{Namespace: route.Namespace, Name: route.Name}
+		// If there's no existing routes, the reconcile function handles that gracefully.
+		reconciledRoute, err := r.reconcileRoute(ctx, route, existingRoutes[namespacedRoute])
+		if err != nil {
+			return nil, fmt.Errorf("failed to reconcile route: %w", err)
+		}
+		reconciledRoutes = append(reconciledRoutes, reconciledRoute)
+
+		// Remove key from map of existing routes to find those that we need to delete.
+		delete(existingRoutes, namespacedRoute)
+	}
+
+	for _, route := range existingRoutes {
+		if err := r.routeClient.RouteV1().Routes(route.Namespace).Delete(route.Name, &metav1.DeleteOptions{}); err != nil {
+			return nil, fmt.Errorf("failed to remove route %q: %w", route.Name, err)
+		}
+	}
+
+	return reconciledRoutes, nil
+}
+
+// ensureRouteFinalizer adds finalizer to Ingress to call the deletion of openshift route.
+func (r *Reconciler) ensureRouteFinalizer(ia *v1alpha1.Ingress) error {
+	finalizers := sets.NewString(ia.GetFinalizers()...)
+	if finalizers.Has(r.rfinalizer) {
+		return nil
+	}
+
+	mergePatch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"finalizers":      append(ia.GetFinalizers(), r.rfinalizer),
+			"resourceVersion": ia.GetResourceVersion(),
+		},
+	}
+
+	patch, err := json.Marshal(mergePatch)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Patch(ia.GetName(), types.MergePatchType, patch)
+	return err
+}
+
+func (r *Reconciler) reconcileRoute(ctx context.Context, desiredRoute *routev1.Route, route *routev1.Route) (*routev1.Route, error) {
+	logger := logging.FromContext(ctx)
+
+	if route == nil {
+		logger.Infof("Creating route with host %q", desiredRoute.Spec.Host)
+		route, err := r.routeClient.RouteV1().Routes(desiredRoute.Namespace).Create(desiredRoute)
+		if err != nil {
+			return nil, fmt.Errorf("error creating route %q for host %q: %w", desiredRoute.Name, desiredRoute.Spec.Host, err)
+		}
+		return route, nil
+	}
+	if !equality.Semantic.DeepEqual(desiredRoute.Spec, route.Spec) {
+		want := route.DeepCopy()
+		want.Spec = desiredRoute.Spec
+		logger.Infof("Updating route with host %q", desiredRoute.Spec.Host)
+		route, err := r.routeClient.RouteV1().Routes(want.Namespace).Update(want)
+		if err != nil {
+			return nil, fmt.Errorf("error updating route %q for host %q: %w", want.Name, desiredRoute.Spec.Host, err)
+		}
+		return route, nil
+	}
+	return route, nil
+}
+
+func allRoutesReady(rs []*routev1.Route) bool {
+	for _, r := range rs {
+		if !isRouteReady(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func isRouteReady(r *routev1.Route) bool {
+	for _, ing := range r.Status.Ingress {
+		for _, cond := range ing.Conditions {
+			if cond.Type != routev1.RouteAdmitted {
+				continue
+			}
+			if cond.Status == corev1.ConditionTrue {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -1286,6 +1286,7 @@
     "github.com/openshift/client-go/route/clientset/versioned/fake",
     "github.com/openshift/client-go/route/informers/externalversions",
     "github.com/openshift/client-go/route/informers/externalversions/route/v1",
+    "github.com/openshift/client-go/route/listers/route/v1",
     "go.uber.org/zap",
     "go.uber.org/zap/zaptest",
     "golang.org/x/sync/errgroup",

@@ -19,6 +19,8 @@ package ingress
 import (
 	"context"
 
+	routeclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client"
+	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route"
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	gatewayinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway"
 	virtualserviceinformer "knative.dev/pkg/client/injection/informers/istio/v1alpha3/virtualservice"
@@ -54,6 +56,7 @@ func NewController(
 	gatewayInformer := gatewayinformer.Get(ctx)
 	secretInformer := secretinformer.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
+	routeInformer := routeinformer.Get(ctx)
 
 	c := &Reconciler{
 		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -61,7 +64,10 @@ func NewController(
 		gatewayLister:        gatewayInformer.Lister(),
 		secretLister:         secretInformer.Lister(),
 		ingressLister:        ingressInformer.Lister(),
+		routeLister:          routeInformer.Lister(),
+		routeClient:          routeclient.Get(ctx),
 		finalizer:            ingressFinalizer,
+		rfinalizer:           routeFinalizer,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Ingresses")
 
