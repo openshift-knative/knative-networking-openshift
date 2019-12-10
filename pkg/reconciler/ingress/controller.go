@@ -67,6 +67,7 @@ func NewController(
 		routeLister:          routeInformer.Lister(),
 		routeClient:          routeclient.Get(ctx),
 		finalizer:            ingressFinalizer,
+		rfinalizer:           routeFinalizer,
 	}
 	impl := controller.NewImpl(c, c.Logger, "Ingresses")
 

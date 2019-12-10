@@ -74,6 +74,9 @@ const (
 var (
 	ingressResource  = v1alpha1.Resource("ingresses")
 	ingressFinalizer = ingressResource.String()
+
+	routeResource  = routev1.Resource("routes")
+	routeFinalizer = routeResource.String()
 )
 
 // Reconciler implements the control loop for the Ingress resources.
@@ -90,6 +93,7 @@ type Reconciler struct {
 	configStore reconciler.ConfigStore
 	tracker     tracker.Interface
 	finalizer   string
+	rfinalizer  string
 
 	statusManager StatusManager
 }
@@ -236,6 +240,9 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 		routes, err := r.reconcileRoutes(ctx, *ia, desiredRoutes)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile routes: %w", err)
+		}
+		if err := r.ensureRouteFinalizer(&ia); err != nil {
+			return fmt.Errorf("failed to add finalizer: %w", err)
 		}
 		if allRoutesReady(routes) {
 			ia.Status.MarkLoadBalancerReady(lbs, publicLbs, privateLbs)
@@ -529,6 +536,29 @@ func (r *Reconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.Ingress, d
 	}
 
 	return reconciledRoutes, nil
+}
+
+// ensureRouteFinalizer is same function with ensureFinalizer. But the finalizer string is different.
+func (r *Reconciler) ensureRouteFinalizer(ia *v1alpha1.Ingress) error {
+	finalizers := sets.NewString(ia.GetFinalizers()...)
+	if finalizers.Has(r.rfinalizer) {
+		return nil
+	}
+
+	mergePatch := map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"finalizers":      append(ia.GetFinalizers(), r.rfinalizer),
+			"resourceVersion": ia.GetResourceVersion(),
+		},
+	}
+
+	patch, err := json.Marshal(mergePatch)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Patch(ia.GetName(), types.MergePatchType, patch)
+	return err
 }
 
 func (r *Reconciler) reconcileRoute(ctx context.Context, desiredRoute *routev1.Route, route *routev1.Route) (*routev1.Route, error) {
