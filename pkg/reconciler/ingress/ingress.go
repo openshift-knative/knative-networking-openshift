@@ -75,8 +75,7 @@ var (
 	ingressResource  = v1alpha1.Resource("ingresses")
 	ingressFinalizer = ingressResource.String()
 
-	routeResource  = routev1.Resource("routes")
-	routeFinalizer = routeResource.String()
+	routeFinalizer = "ocp-ingress"
 )
 
 // Reconciler implements the control loop for the Ingress resources.
