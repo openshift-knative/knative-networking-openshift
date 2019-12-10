@@ -230,6 +230,9 @@ func TestReconcile(t *testing.T) {
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("no-virtualservice-yet", 1234, ingressReady),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("no-virtualservice-yet", routeFinalizer),
+		},
 		WantEvents: []string{
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "no-virtualservice-yet-mesh"),
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "no-virtualservice-yet"),
@@ -343,6 +346,9 @@ func TestReconcile(t *testing.T) {
 			Object: resources.MakeIngressVirtualService(insertProbe(ingress("reconcile-virtualservice", 1234)),
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/" + networking.KnativeIngressGateway}, nil)),
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("reconcile-virtualservice", routeFinalizer),
+		},
 		WantCreates: []runtime.Object{
 			resources.MakeMeshVirtualService(insertProbe(ingress("reconcile-virtualservice", 1234))),
 		},
@@ -373,6 +379,9 @@ func TestReconcile(t *testing.T) {
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 			route(ingress("route-tests", 1234), "domain.com"),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("route-tests", routeFinalizer),
+		},
 	}, {
 		Name:                    "remove wrong route",
 		Key:                     "test-ns/route-tests",
@@ -392,6 +401,9 @@ func TestReconcile(t *testing.T) {
 			},
 			Name: "route-8a7e9a9d-fbc6-11e9-a88e-0261aff8d6d8-356235343161",
 		}},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("route-tests", routeFinalizer),
+		},
 	}, {
 		Name:                    "remove route in wrong ns and create it in proper ns",
 		Key:                     "test-ns/route-tests",
@@ -408,6 +420,9 @@ func TestReconcile(t *testing.T) {
 				Namespace: "istio-system",
 				Name:      "test-ingressgateway",
 			}, defaultMaxRevisionTimeout),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("route-tests", routeFinalizer),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithStatus("route-tests", 1234,
@@ -464,6 +479,7 @@ func TestReconcile(t *testing.T) {
 			routeLister:          listers.GetOpenshiftRouteLister(),
 			routeClient:          fakerouteclient.Get(ctx),
 			finalizer:            ingressFinalizer,
+			rfinalizer:           routeFinalizer,
 			configStore: &testConfigStore{
 				config: ReconcilerTestConfig(),
 			},
@@ -502,6 +518,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("reconciling-ingress", ingressFinalizer),
+			patchAddFinalizerAction("reconciling-ingress", routeFinalizer),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithTLSAndStatus("reconciling-ingress", 1234,
@@ -648,6 +665,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("reconciling-ingress", ingressFinalizer),
+			patchAddFinalizerAction("reconciling-ingress", routeFinalizer),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithTLSAndStatus("reconciling-ingress", 1234,
@@ -751,6 +769,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		}},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("reconciling-ingress", ingressFinalizer),
+			patchAddFinalizerAction("reconciling-ingress", routeFinalizer),
 		},
 		WantStatusUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: ingressWithTLSAndStatus("reconciling-ingress", 1234,
@@ -849,6 +868,9 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			Eventf(corev1.EventTypeNormal, "Created", "Created VirtualService %q", "reconciling-ingress-mesh"),
 			Eventf(corev1.EventTypeNormal, "Updated", "Updated status for Ingress %q", "reconciling-ingress"),
 		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("reconciling-ingress", routeFinalizer),
+		},
 		Key: "test-ns/reconciling-ingress",
 	}}
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -871,6 +893,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			routeClient:          fakerouteclient.Get(ctx),
 			tracker:              &NullTracker{},
 			finalizer:            ingressFinalizer,
+			rfinalizer:           routeFinalizer,
 			// Enable reconciling gateway.
 			configStore: &testConfigStore{
 				config: &config.Config{
