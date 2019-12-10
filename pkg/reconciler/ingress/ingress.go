@@ -160,7 +160,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	if ia.GetDeletionTimestamp() != nil {
-		return r.reconcileDeletion(ctx, ia)
+		// reconcileDeletion is not used in downstream.
+		if err := r.reconcileDeletion(ctx, ia); err != nil {
+			return err
+		}
+		return r.reconcileRouteDeletion(ctx, ia)
 	}
 
 	// We may be reading a version of the object that was stored at an older version
@@ -241,7 +245,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 		if err != nil {
 			return fmt.Errorf("failed to reconcile routes: %w", err)
 		}
-		if err := r.ensureRouteFinalizer(&ia); err != nil {
+		if err := r.ensureRouteFinalizer(ia); err != nil {
 			return fmt.Errorf("failed to add finalizer: %w", err)
 		}
 		if allRoutesReady(routes) {
@@ -307,6 +311,34 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 		}
 	}
 	return nil
+}
+
+func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
+	logger := logging.FromContext(ctx)
+
+	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.rfinalizer {
+		return nil
+	}
+
+	routes, err := r.routeLister.List(labels.SelectorFromSet(map[string]string{
+		networking.IngressLabelKey:     string(ia.GetUID()),
+		serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
+		serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey],
+	}))
+	if err != nil {
+		return fmt.Errorf("failed to list routes: %w", err)
+	}
+	for _, route := range routes {
+		if err := r.routeClient.RouteV1().Routes(route.Namespace).Delete(route.Name, &metav1.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to remove route %q: %w", route.Name, err)
+		}
+	}
+
+	// Update the Ingress to remove the finalizer.
+	logger.Info("Removing finalizer ", r.rfinalizer)
+	ia.SetFinalizers(ia.GetFinalizers()[1:])
+	_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia)
+	return err
 }
 
 func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
