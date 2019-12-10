@@ -160,7 +160,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, key string) error {
 func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
 	if ia.GetDeletionTimestamp() != nil {
-		// reconcileDeletion is not used in downstream.
+		// Actually reconcileDeletion is not used in downstream because enableReconcileGateway is not supported.
 		if err := r.reconcileDeletion(ctx, ia); err != nil {
 			return err
 		}
@@ -320,24 +320,15 @@ func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.In
 		return nil
 	}
 
-	routes, err := r.routeLister.List(labels.SelectorFromSet(map[string]string{
-		networking.IngressLabelKey:     string(ia.GetUID()),
-		serving.RouteLabelKey:          ia.GetLabels()[serving.RouteLabelKey],
-		serving.RouteNamespaceLabelKey: ia.GetLabels()[serving.RouteNamespaceLabelKey],
-	}))
-	if err != nil {
-		return fmt.Errorf("failed to list routes: %w", err)
-	}
-	for _, route := range routes {
-		if err := r.routeClient.RouteV1().Routes(route.Namespace).Delete(route.Name, &metav1.DeleteOptions{}); err != nil {
-			return fmt.Errorf("failed to remove route %q: %w", route.Name, err)
-		}
+	// With no desired routes, all routes matching the selector will be removed.
+	if _, err := r.reconcileRoutes(ctx, *ia, nil); err != nil {
+		return err
 	}
 
 	// Update the Ingress to remove the finalizer.
 	logger.Info("Removing finalizer ", r.rfinalizer)
 	ia.SetFinalizers(ia.GetFinalizers()[1:])
-	_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia)
+	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia)
 	return err
 }
 
@@ -349,12 +340,6 @@ func (r *Reconciler) reconcileDeletion(ctx context.Context, ia *v1alpha1.Ingress
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.finalizer {
 		return nil
 	}
-
-	// With no desired routes, all routes matching the selector will be removed.
-	if _, err := r.reconcileRoutes(ctx, *ia, nil); err != nil {
-		return err
-	}
-
 	istiocfg := config.FromContext(ctx).Istio
 	logger.Infof("Cleaning up Gateway Servers for Ingress %s", ia.GetName())
 	for _, gws := range [][]config.Gateway{istiocfg.IngressGateways, istiocfg.LocalGateways} {
@@ -570,7 +555,7 @@ func (r *Reconciler) reconcileRoutes(ctx context.Context, ia v1alpha1.Ingress, d
 	return reconciledRoutes, nil
 }
 
-// ensureRouteFinalizer is same function with ensureFinalizer. But the finalizer string is different.
+// ensureRouteFinalizer adds finalizer to Ingress to call the deletion of openshift route.
 func (r *Reconciler) ensureRouteFinalizer(ia *v1alpha1.Ingress) error {
 	finalizers := sets.NewString(ia.GetFinalizers()...)
 	if finalizers.Has(r.rfinalizer) {
