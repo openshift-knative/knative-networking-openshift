@@ -351,25 +351,23 @@ func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.In
 	}
 
 	// If the Ingress is the last one in the namespace, remove its namespace from SMMR.
-	if len(ingresses) == 1 {
-		// In order to double check that we are reconciling proper ingress check with name and namespace
-		if ia.GetNamespace() == ingresses[0].Namespace && ia.GetName() == ingresses[0].Name {
-			smmr, err := r.smmrLister.ServiceMeshMemberRolls(smmrNamespace).Get(smmrName)
-			if err != nil {
-				return fmt.Errorf("failed to get SMMR in %q: %w", smmrNamespace, err)
+	// In order to double check that we are reconciling proper ingress check with name.
+	if len(ingresses) == 1 && ia.GetName() == ingresses[0].Name {
+		smmr, err := r.smmrLister.ServiceMeshMemberRolls(smmrNamespace).Get(smmrName)
+		if err != nil {
+			return fmt.Errorf("failed to get SMMR in %q: %w", smmrNamespace, err)
+		}
+		for i, val := range smmr.Spec.Members {
+			if val == ia.GetNamespace() {
+				smmr.Spec.Members = append(smmr.Spec.Members[:i], smmr.Spec.Members[i+1:]...)
+				break
 			}
-			for i, val := range smmr.Spec.Members {
-				if val == ia.GetNamespace() {
-					smmr.Spec.Members = append(smmr.Spec.Members[:i], smmr.Spec.Members[i+1:]...)
-					break
-				}
-			}
-			if _, err := r.smmrClient.MaistraV1().ServiceMeshMemberRolls(smmrNamespace).Update(smmr); err != nil {
-				return err
-			}
-			if err := r.reconcileNetworkPolicy(ctx, ia, true); err != nil {
-				return err
-			}
+		}
+		if _, err := r.smmrClient.MaistraV1().ServiceMeshMemberRolls(smmrNamespace).Update(smmr); err != nil {
+			return err
+		}
+		if err := r.reconcileNetworkPolicy(ctx, ia, true); err != nil {
+			return err
 		}
 	}
 
@@ -714,13 +712,13 @@ func appendIfAbsent(members []string, routeNamespace string) ([]string, bool) {
 func (r *Reconciler) reconcileNetworkPolicy(ctx context.Context, ing *v1alpha1.Ingress, isDeletion bool) error {
 	desired := oresources.MakeNetworkPolicyAllowAll(ing.GetNamespace())
 
-	networkPolices, err := r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.Namespace).List(metav1.ListOptions{})
+	networkPolicies, err := r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 
 	// Detect if the user has any NetworkPolicy objects in this namespace
-	for _, networkPolicy := range networkPolices.Items {
+	for _, networkPolicy := range networkPolicies.Items {
 		// Don't treat the NetworkPolicy we create as user-created
 		if networkPolicy.Name == desired.Name {
 			continue
@@ -741,16 +739,9 @@ func (r *Reconciler) reconcileNetworkPolicy(ctx context.Context, ing *v1alpha1.I
 	}
 
 	if isDeletion {
-		if err := r.deleteNetworkPolicy(ctx, ing, desired); err != nil {
-			return err
-		}
-	} else {
-		if err := r.ensureNetworkPolicy(ctx, ing, desired); err != nil {
-			return err
-		}
+		return r.deleteNetworkPolicy(ctx, ing, desired)
 	}
-
-	return nil
+	return r.ensureNetworkPolicy(ctx, ing, desired)
 }
 
 func (r *Reconciler) ensureNetworkPolicy(ctx context.Context, ing *v1alpha1.Ingress, desired *networkingv1.NetworkPolicy) error {
@@ -758,8 +749,7 @@ func (r *Reconciler) ensureNetworkPolicy(ctx context.Context, ing *v1alpha1.Ingr
 
 	networkPolicy, err := r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
 	if apierrs.IsNotFound(err) {
-		_, err = r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.GetNamespace()).Create(desired)
-		if err != nil {
+		if _, err := r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.GetNamespace()).Create(desired); err != nil {
 			logger.Errorf("Failed to create NetworkPolicy %q in namespace %q: %v", desired.Name, desired.Namespace, err)
 			return err
 		}
