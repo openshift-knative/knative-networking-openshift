@@ -19,6 +19,8 @@ package ingress
 import (
 	"context"
 
+	smmrclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/injection/client"
+	smmrinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/injection/informers/maistra/v1/servicemeshmemberroll"
 	routeclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client"
 	routeinformer "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route"
 	"knative.dev/pkg/apis/istio/v1alpha3"
@@ -57,6 +59,7 @@ func NewController(
 	secretInformer := secretinformer.Get(ctx)
 	ingressInformer := ingressinformer.Get(ctx)
 	routeInformer := routeinformer.Get(ctx)
+	smmrInformer := smmrinformer.Get(ctx)
 
 	c := &Reconciler{
 		Base:                 reconciler.NewBase(ctx, controllerAgentName, cmw),
@@ -66,6 +69,8 @@ func NewController(
 		ingressLister:        ingressInformer.Lister(),
 		routeLister:          routeInformer.Lister(),
 		routeClient:          routeclient.Get(ctx),
+		smmrLister:           smmrInformer.Lister(),
+		smmrClient:           smmrclient.Get(ctx),
 		finalizer:            ingressFinalizer,
 		rfinalizer:           routeFinalizer,
 	}
