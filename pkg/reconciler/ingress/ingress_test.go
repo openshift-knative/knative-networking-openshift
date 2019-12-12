@@ -23,6 +23,7 @@ import (
 	"time"
 
 	// Inject our fakes
+	fakesmmrclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/injection/client/fake"
 	fakerouteclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
@@ -479,6 +480,8 @@ func TestReconcile(t *testing.T) {
 			gatewayLister:        listers.GetGatewayLister(),
 			routeLister:          listers.GetOpenshiftRouteLister(),
 			routeClient:          fakerouteclient.Get(ctx),
+			smmrLister:           listers.GetServiceMeshMemberRollLister(),
+			smmrClient:           fakesmmrclient.Get(ctx),
 			finalizer:            ingressFinalizer,
 			rfinalizer:           routeFinalizer,
 			configStore: &testConfigStore{
@@ -892,6 +895,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			secretLister:         listers.GetSecretLister(),
 			routeLister:          listers.GetOpenshiftRouteLister(),
 			routeClient:          fakerouteclient.Get(ctx),
+			smmrLister:           listers.GetServiceMeshMemberRollLister(),
+			smmrClient:           fakesmmrclient.Get(ctx),
 			tracker:              &NullTracker{},
 			finalizer:            ingressFinalizer,
 			rfinalizer:           routeFinalizer,

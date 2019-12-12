@@ -35,7 +35,6 @@ import (
 	"knative.dev/serving/pkg/apis/networking"
 	"knative.dev/serving/pkg/apis/networking/v1alpha1"
 	"knative.dev/serving/pkg/apis/serving"
-	"knative.dev/serving/pkg/network"
 	"knative.dev/serving/pkg/reconciler"
 	"knative.dev/serving/pkg/reconciler/ingress/config"
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
@@ -190,10 +189,8 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	logger.Infof("Reconciling ingress: %#v", ia)
 
 	// Only add Istio ingress to SMMR
-	if ia.GetAnnotations()[networking.IngressClassAnnotationKey] == network.IstioIngressClassName {
-		if err := r.reconcileSmmr(ctx, ia); err != nil {
-			return err
-		}
+	if err := r.reconcileSmmr(ctx, ia); err != nil {
+		return err
 	}
 
 	gatewayNames := qualifiedGatewayNamesFromContext(ctx)

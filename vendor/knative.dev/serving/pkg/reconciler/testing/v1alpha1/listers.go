@@ -18,6 +18,8 @@ package v1alpha1
 
 import (
 	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
+	smmrv1 "github.com/maistra/istio-operator/pkg/apis/maistra/v1"
+	smmrv1listers "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/listers/maistra/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	routev1listers "github.com/openshift/client-go/route/listers/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -54,6 +56,7 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
 	certmanagerv1alpha1.AddToScheme,
 	autoscalingv2beta1.AddToScheme,
 	routev1.AddToScheme,
+	smmrv1.AddToScheme,
 }
 
 type Listers struct {
@@ -210,4 +213,12 @@ func (l *Listers) GetOpenshiftRouteLister() routev1listers.RouteLister {
 
 func (l *Listers) GetOpenshiftObjects() []runtime.Object {
 	return l.sorter.ObjectsForSchemeFunc(routev1.AddToScheme)
+}
+
+func (l *Listers) GetServiceMeshMemberRollLister() smmrv1listers.ServiceMeshMemberRollLister {
+	return smmrv1listers.NewServiceMeshMemberRollLister(l.IndexerFor(&smmrv1.ServiceMeshMemberRoll{}))
+}
+
+func (l *Listers) GetServiceMeshMemberRollObjects() []runtime.Object {
+	return l.sorter.ObjectsForSchemeFunc(smmrv1.AddToScheme)
 }
