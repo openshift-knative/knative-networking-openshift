@@ -40,8 +40,10 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	//	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -225,7 +227,7 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			ingress("no-virtualservice-yet", 1234),
 			route(ingress("no-virtualservice-yet", 1234), "domain.com"),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -280,7 +282,7 @@ func TestReconcile(t *testing.T) {
 				},
 				Spec: v1alpha3.VirtualServiceSpec{},
 			},
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -349,7 +351,7 @@ func TestReconcile(t *testing.T) {
 				Spec: v1alpha3.VirtualServiceSpec{},
 			},
 			route(ingress("reconcile-virtualservice", 1234), "domain.com"),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
@@ -388,7 +390,7 @@ func TestReconcile(t *testing.T) {
 			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 			route(ingress("route-tests", 1234), "domain.com"),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
@@ -405,7 +407,7 @@ func TestReconcile(t *testing.T) {
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 			route(ingress("route-tests", 1234), "domain.com"),
 			route(ingress("route-tests", 1234), "domain2.com"),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
@@ -428,7 +430,7 @@ func TestReconcile(t *testing.T) {
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/" + networking.KnativeIngressGateway}, nil)),
 			ingressWithStatus("route-tests", 1234, ingressReady),
 			route(ingress("route-tests", 1234), "domain.com", withNamespace("wrong-ns")),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -485,6 +487,144 @@ func TestReconcile(t *testing.T) {
 			},
 			Name: "route-8a7e9a9d-fbc6-11e9-a88e-0261aff8d6d8-656566326438",
 		}},
+	}, {
+		Name: "create new NetworkPolicy",
+		Key:  "test-ns/route-tests",
+		Objects: []runtime.Object{
+			ingressWithStatus("route-tests", 1234, ingressReady),
+			resources.MakeMeshVirtualService(insertProbe(ingress("route-tests", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
+			route(ingress("route-tests", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+		},
+		WantCreates: []runtime.Object{
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("route-tests", routeFinalizer),
+		},
+	}, {
+		Name: "reconcile with existing istio-mesh NetworkPolicy",
+		Key:  "test-ns/route-tests",
+		Objects: []runtime.Object{
+			ingressWithStatus("route-tests", 1234, ingressReady),
+			resources.MakeMeshVirtualService(insertProbe(ingress("route-tests", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
+			route(ingress("route-tests", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+			&networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "istio-mesh",
+					Namespace: "test-ns",
+					Labels:    map[string]string{"maistra.io/owner": "knative-serving-ingress"},
+				},
+				Spec: networkingv1.NetworkPolicySpec{},
+			},
+		},
+		WantCreates: []runtime.Object{
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("route-tests", routeFinalizer),
+		},
+	}, {
+		Name: "reconcile with existing managed and istio-mesh NetworkPolicies",
+		Key:  "test-ns/route-tests",
+		Objects: []runtime.Object{
+			ingressWithStatus("route-tests", 1234, ingressReady),
+			resources.MakeMeshVirtualService(insertProbe(ingress("route-tests", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
+			route(ingress("route-tests", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+			&networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "istio-mesh",
+					Namespace: "test-ns",
+					Labels:    map[string]string{"maistra.io/owner": "knative-serving-ingress"},
+				},
+				Spec: networkingv1.NetworkPolicySpec{},
+			},
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("route-tests", routeFinalizer),
+		},
+	}, {
+		Name: "reconcile with user-added NetworkPolicy",
+		Key:  "test-ns/route-tests",
+		Objects: []runtime.Object{
+			ingressWithStatus("route-tests", 1234, ingressReady),
+			resources.MakeMeshVirtualService(insertProbe(ingress("route-tests", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
+			route(ingress("route-tests", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+			&networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-network-policy",
+					Namespace: "test-ns",
+				},
+				Spec: networkingv1.NetworkPolicySpec{},
+			},
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("route-tests", routeFinalizer),
+		},
+	}, {
+		Name: "reconcile with existing managed and user-added NetworkPolicies",
+		Key:  "test-ns/route-tests",
+		Objects: []runtime.Object{
+			ingressWithStatus("route-tests", 1234, ingressReady),
+			resources.MakeMeshVirtualService(insertProbe(ingress("route-tests", 1234))),
+			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
+				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
+			route(ingress("route-tests", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+			&networkingv1.NetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-network-policy",
+					Namespace: "test-ns",
+				},
+				Spec: networkingv1.NetworkPolicySpec{},
+			},
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
+		},
+		WantPatches: []clientgotesting.PatchActionImpl{
+			patchAddFinalizerAction("route-tests", routeFinalizer),
+		},
+		/*  This does not work due to a table test's bug(?)*/
+		/*
+			}, {
+				Name: "reconcile deletion with existing managed NetworkPolicy",
+				Key:  "test-ns/route-tests",
+				Objects: []runtime.Object{
+					addRouteFinalizer(addDeletionTimestamp(ingress("route-tests", 1234))),
+					resources.MakeMeshVirtualService(insertProbe(ingress("route-tests", 1234))),
+					resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
+						makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
+					smmr([]string{"test-ns", "another-ns"}),
+					oresources.MakeNetworkPolicyAllowAll("test-ns"),
+				},
+				WantUpdates: []clientgotesting.UpdateActionImpl{{
+					Object: addDeletionTimestamp(ingress("route-tests", 1234)),
+				}, {
+					Object: smmr([]string{"another-ns"}),
+				}},
+				WantDeletes: []clientgotesting.DeleteActionImpl{{
+					ActionImpl: clientgotesting.ActionImpl{
+						Namespace: "test-ns",
+						Verb:      "delete",
+						Resource: schema.GroupVersionResource{
+							Group:    "networking.k8s.io",
+							Version:  "v1",
+							Resource: "networkpolicies"},
+						Subresource: ""},
+					Name: "knative-serving-allow-all",
+				}},
+		*/
 	}}
 
 	table.Test(t, MakeFactory(func(ctx context.Context, listers *Listers, cmw configmap.Watcher) controller.Reconciler {
@@ -521,7 +661,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 			originSecret("istio-system", "secret0"),
 			route(ingressWithTLS("reconciling-ingress", 1234, ingressTLS), "domain.com", withTo("istio-ingressgateway")),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -590,7 +730,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			ingressWithTLS("reconciling-ingress", 1234, ingressTLS),
 			originSecret("istio-system", "secret0"),
 			route(ingress("no-virtualservice-yet", 1234), "domain.com"),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -640,7 +780,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		Objects: []runtime.Object{
 			ingressWithFinalizers("reconciling-ingress", 1234, ingressTLS, []string{ingressFinalizer}),
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []v1alpha3.Server{irrelevantServer, ingressTLSServer}),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -668,7 +808,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// from the namespace (`istio-system`) of Istio gateway service.
 			originSecret("knative-serving", "secret0"),
 			route(ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving")), "domain.com", withTo("istio-ingressgateway")),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -766,7 +906,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					"wrong_data": []byte("wrongdata"),
 				},
 			},
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -851,7 +991,7 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// No Gateway servers match the given TLS of Ingress.
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 			originSecret("istio-system", "secret0"),
-			smmr("test-ns"),
+			smmr([]string{"test-ns"}),
 			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
@@ -1022,6 +1162,12 @@ func addAnnotations(ing *v1alpha1.Ingress, annos map[string]string) *v1alpha1.In
 	return ing
 }
 
+func addDeletionTimestamp(ing *v1alpha1.Ingress) *v1alpha1.Ingress {
+	t := metav1.NewTime(time.Unix(1e9, 0))
+	ing.SetDeletionTimestamp(&t)
+	return ing
+}
+
 type testConfigStore struct {
 	config *config.Config
 }
@@ -1102,6 +1248,11 @@ func ingressWithTLSClusterLocal(name string, generation int64, tls []v1alpha1.In
 	ci.Spec.Rules = rules
 
 	return ci
+}
+
+func addRouteFinalizer(ingress *v1alpha1.Ingress) *v1alpha1.Ingress {
+	ingress.ObjectMeta.Finalizers = []string{routeFinalizer}
+	return ingress
 }
 
 func ingressWithTLSAndStatus(name string, generation int64, tls []v1alpha1.IngressTLS, status v1alpha1.IngressStatus) *v1alpha1.Ingress {
@@ -1200,7 +1351,7 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	smmrClient := fakesmmrclient.Get(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 
-	smmrClient.MaistraV1().ServiceMeshMemberRolls("knative-serving-ingress").Create(smmr("knative-serving-ingress"))
+	smmrClient.MaistraV1().ServiceMeshMemberRolls("knative-serving-ingress").Create(smmr([]string{"knative-serving-ingress"}))
 	kubeClient.NetworkingV1().NetworkPolicies("test-ns").Create(oresources.MakeNetworkPolicyAllowAll("test-ns"))
 
 	h := NewHooks()
@@ -1301,7 +1452,7 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 	smmrClient := fakesmmrclient.Get(ctx)
 	kubeClient := fakekubeclient.Get(ctx)
 
-	smmrClient.MaistraV1().ServiceMeshMemberRolls("knative-serving-ingress").Create(smmr("knative-serving-ingress"))
+	smmrClient.MaistraV1().ServiceMeshMemberRolls("knative-serving-ingress").Create(smmr([]string{"knative-serving-ingress"}))
 	kubeClient.NetworkingV1().NetworkPolicies("test-ns").Create(oresources.MakeNetworkPolicyAllowAll("test-ns"))
 
 	h := NewHooks()
@@ -1415,14 +1566,14 @@ func (m *fakeStatusManager) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.Ingres
 	return m.FakeIsReady(ia, gw)
 }
 
-func smmr(memberNs string) *maistrav1.ServiceMeshMemberRoll {
+func smmr(namespaces []string) *maistrav1.ServiceMeshMemberRoll {
 	smmr := maistrav1.ServiceMeshMemberRoll{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      smmrName,
 			Namespace: smmrNamespace,
 		},
 		Spec: maistrav1.ServiceMeshMemberRollSpec{
-			Members: []string{memberNs},
+			Members: namespaces,
 		},
 	}
 	return &smmr

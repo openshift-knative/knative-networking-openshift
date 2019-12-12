@@ -332,7 +332,6 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 
 func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
-
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.rfinalizer {
 		return nil
 	}
