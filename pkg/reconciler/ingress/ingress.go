@@ -188,7 +188,6 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 	ia.Status.InitializeConditions()
 	logger.Infof("Reconciling ingress: %#v", ia)
 
-	// Only add Istio ingress to SMMR
 	if err := r.reconcileSmmr(ctx, ia); err != nil {
 		return err
 	}
@@ -353,17 +352,16 @@ func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.In
 		if err != nil {
 			return fmt.Errorf("failed to get SMMR in %q: %w", smmrNamespace, err)
 		}
-		for i, val := range smmr.Spec.Members {
-			if val == ia.GetNamespace() {
-				smmr.Spec.Members = append(smmr.Spec.Members[:i], smmr.Spec.Members[i+1:]...)
-				break
+		newMembers, changed := removeIfPresent(smmr.Spec.Members, ia.GetNamespace())
+		if changed {
+			existing := smmr.DeepCopy()
+			existing.Spec.Members = newMembers
+			if _, err := r.smmrClient.MaistraV1().ServiceMeshMemberRolls(existing.Namespace).Update(existing); err != nil {
+				return err
 			}
-		}
-		if _, err := r.smmrClient.MaistraV1().ServiceMeshMemberRolls(smmrNamespace).Update(smmr); err != nil {
-			return err
-		}
-		if err := r.reconcileNetworkPolicy(ctx, ia, true); err != nil {
-			return err
+			if err := r.reconcileNetworkPolicy(ctx, ia, true); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -680,10 +678,10 @@ func (r *Reconciler) reconcileSmmr(ctx context.Context, ing *v1alpha1.Ingress) e
 		return fmt.Errorf("failed to get SMMR in %q: %w", smmrNamespace, err)
 	}
 	newMembers, changed := appendIfAbsent(smmr.Spec.Members, ing.GetNamespace())
-	smmr.Spec.Members = newMembers
-
 	if changed {
-		if _, err := r.smmrClient.MaistraV1().ServiceMeshMemberRolls(smmrNamespace).Update(smmr); err != nil {
+		existing := smmr.DeepCopy()
+		existing.Spec.Members = newMembers
+		if _, err := r.smmrClient.MaistraV1().ServiceMeshMemberRolls(existing.Namespace).Update(existing); err != nil {
 			// ref for substring https://github.com/Maistra/istio-operator/blob/maistra-1.0/pkg/controller/servicemesh/validation/memberroll.go#L95
 			if strings.Contains(err.Error(), "one or more members are already defined in another ServiceMeshMemberRoll") {
 				logger.Errorf("failed to update ServiceMeshMemberRole because namespace %s is already a member of another ServiceMeshMemberRoll", ing.GetNamespace())
@@ -696,13 +694,23 @@ func (r *Reconciler) reconcileSmmr(ctx context.Context, ing *v1alpha1.Ingress) e
 }
 
 // appendIfAbsent append namespace to member if its not exist
-func appendIfAbsent(members []string, routeNamespace string) ([]string, bool) {
+func appendIfAbsent(members []string, namespace string) ([]string, bool) {
 	for _, val := range members {
-		if val == routeNamespace {
+		if val == namespace {
 			return members, false
 		}
 	}
-	return append(members, routeNamespace), true
+	return append(members, namespace), true
+}
+
+// removeIfPresent removes namespace from member if its exist
+func removeIfPresent(members []string, namespace string) ([]string, bool) {
+	for i, val := range members {
+		if val == namespace {
+			return append(members[:i], members[i+1:]...), true
+		}
+	}
+	return members, false
 }
 
 func (r *Reconciler) reconcileNetworkPolicy(ctx context.Context, ing *v1alpha1.Ingress, isDeletion bool) error {
