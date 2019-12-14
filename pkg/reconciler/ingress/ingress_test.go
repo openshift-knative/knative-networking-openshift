@@ -75,8 +75,6 @@ import (
 	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/injection/informers/maistra/v1/servicemeshmemberroll/fake"
 	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route/fake"
 	oresources "github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress/resources"
-
-	maistrav1 "github.com/maistra/istio-operator/pkg/apis/maistra/v1"
 )
 
 const (
@@ -1162,12 +1160,6 @@ func addAnnotations(ing *v1alpha1.Ingress, annos map[string]string) *v1alpha1.In
 	return ing
 }
 
-func addDeletionTimestamp(ing *v1alpha1.Ingress) *v1alpha1.Ingress {
-	t := metav1.NewTime(time.Unix(1e9, 0))
-	ing.SetDeletionTimestamp(&t)
-	return ing
-}
-
 type testConfigStore struct {
 	config *config.Config
 }
@@ -1248,11 +1240,6 @@ func ingressWithTLSClusterLocal(name string, generation int64, tls []v1alpha1.In
 	ci.Spec.Rules = rules
 
 	return ci
-}
-
-func addRouteFinalizer(ingress *v1alpha1.Ingress) *v1alpha1.Ingress {
-	ingress.ObjectMeta.Finalizers = []string{routeFinalizer}
-	return ingress
 }
 
 func ingressWithTLSAndStatus(name string, generation int64, tls []v1alpha1.IngressTLS, status v1alpha1.IngressStatus) *v1alpha1.Ingress {
@@ -1564,17 +1551,4 @@ type fakeStatusManager struct {
 
 func (m *fakeStatusManager) IsReady(ia *v1alpha1.Ingress, gw map[v1alpha1.IngressVisibility]sets.String) (bool, error) {
 	return m.FakeIsReady(ia, gw)
-}
-
-func smmr(namespaces []string) *maistrav1.ServiceMeshMemberRoll {
-	smmr := maistrav1.ServiceMeshMemberRoll{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      smmrName,
-			Namespace: smmrNamespace,
-		},
-		Spec: maistrav1.ServiceMeshMemberRollSpec{
-			Members: namespaces,
-		},
-	}
-	return &smmr
 }
