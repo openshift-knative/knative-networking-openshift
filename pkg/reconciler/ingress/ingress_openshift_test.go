@@ -41,9 +41,9 @@ import (
 	maistrav1 "github.com/maistra/istio-operator/pkg/apis/maistra/v1"
 )
 
-// TestReconcileShift is an additional tests of TestReconcile in ingress_test.go.
+// TestReconcileOpenShift is an additional tests of TestReconcile in ingress_test.go.
 // It tests extra resources like SMMR, NetworkPolicy for networking-openshift.
-func TestReconcileShift(t *testing.T) {
+func TestReconcileOpenShift(t *testing.T) {
 	table := TableTest{{
 		Name: "create new NetworkPolicy",
 		Key:  "test-ns/route-tests",

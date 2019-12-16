@@ -340,7 +340,7 @@ func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.In
 		return err
 	}
 
-	ingresses, err := r.ingressLister.Ingresses(ia.GetNamespace()).List(labels.SelectorFromSet(map[string]string{}))
+	ingresses, err := r.ingressLister.Ingresses(ia.GetNamespace()).List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("failed to list ingress in %q: %w", ia.GetNamespace(), err)
 	}
