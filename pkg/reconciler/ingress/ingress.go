@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"knative.dev/pkg/apis/istio/v1alpha3"
 	"knative.dev/pkg/logging"
@@ -39,6 +40,7 @@ import (
 	"knative.dev/serving/pkg/reconciler/ingress/resources"
 
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,6 +59,9 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	routev1client "github.com/openshift/client-go/route/clientset/versioned"
 	routev1listers "github.com/openshift/client-go/route/listers/route/v1"
+
+	smmrv1client "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/clientset/versioned"
+	smmrv1listers "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/listers/maistra/v1"
 )
 
 const (
@@ -65,6 +70,12 @@ const (
 
 	notReadyOpenshiftIngressReason  = "OpenShiftIngressNotReady"
 	notReadyOpenshiftIngressMessage = "OpenShift Ingress is not ready"
+
+	// Namespace knative-serving-ingress hardcoded for now.
+	// The whole component knative-openshift-ingress is going to be moved into
+	// knative-serving-networking-openshift anyway, where it will be possible to statically determine the namespace to use.
+	smmrName      = "default"
+	smmrNamespace = "knative-serving-ingress"
 )
 
 // ingressfinalizer is the name that we put into the resource finalizer list, e.g.
@@ -88,6 +99,8 @@ type Reconciler struct {
 	ingressLister        listers.IngressLister
 	routeLister          routev1listers.RouteLister
 	routeClient          routev1client.Interface
+	smmrLister           smmrv1listers.ServiceMeshMemberRollLister
+	smmrClient           smmrv1client.Interface
 
 	configStore reconciler.ConfigStore
 	tracker     tracker.Interface
@@ -174,6 +187,10 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ia *v1alpha1.Ingress)
 
 	ia.Status.InitializeConditions()
 	logger.Infof("Reconciling ingress: %#v", ia)
+
+	if err := r.reconcileSmmr(ctx, ia); err != nil {
+		return err
+	}
 
 	gatewayNames := qualifiedGatewayNamesFromContext(ctx)
 	vses, err := resources.MakeVirtualServices(ia, gatewayNames)
@@ -314,7 +331,6 @@ func (r *Reconciler) reconcileVirtualServices(ctx context.Context, ia *v1alpha1.
 
 func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.Ingress) error {
 	logger := logging.FromContext(ctx)
-
 	if len(ia.GetFinalizers()) == 0 || ia.GetFinalizers()[0] != r.rfinalizer {
 		return nil
 	}
@@ -324,10 +340,35 @@ func (r *Reconciler) reconcileRouteDeletion(ctx context.Context, ia *v1alpha1.In
 		return err
 	}
 
+	ingresses, err := r.ingressLister.Ingresses(ia.GetNamespace()).List(labels.Everything())
+	if err != nil {
+		return fmt.Errorf("failed to list ingress in %q: %w", ia.GetNamespace(), err)
+	}
+
+	// If the Ingress is the last one in the namespace, remove its namespace from SMMR.
+	// In order to double check that we are reconciling proper ingress check with name.
+	if len(ingresses) == 1 && ia.GetName() == ingresses[0].Name {
+		smmr, err := r.smmrLister.ServiceMeshMemberRolls(smmrNamespace).Get(smmrName)
+		if err != nil {
+			return fmt.Errorf("failed to get SMMR in %q: %w", smmrNamespace, err)
+		}
+		newMembers, changed := removeIfPresent(smmr.Spec.Members, ia.GetNamespace())
+		if changed {
+			existing := smmr.DeepCopy()
+			existing.Spec.Members = newMembers
+			if _, err := r.smmrClient.MaistraV1().ServiceMeshMemberRolls(existing.Namespace).Update(existing); err != nil {
+				return err
+			}
+			if err := r.reconcileNetworkPolicy(ctx, ia, true); err != nil {
+				return err
+			}
+		}
+	}
+
 	// Update the Ingress to remove the finalizer.
 	logger.Info("Removing finalizer ", r.rfinalizer)
 	ia.SetFinalizers(ia.GetFinalizers()[1:])
-	_, err := r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia)
+	_, err = r.ServingClientSet.NetworkingV1alpha1().Ingresses(ia.GetNamespace()).Update(ia)
 	return err
 }
 
@@ -622,4 +663,131 @@ func isRouteReady(r *routev1.Route) bool {
 		}
 	}
 	return false
+}
+
+func (r *Reconciler) reconcileSmmr(ctx context.Context, ing *v1alpha1.Ingress) error {
+	logger := logging.FromContext(ctx)
+
+	if err := r.reconcileNetworkPolicy(ctx, ing, false); err != nil {
+		return err
+	}
+
+	// update ServiceMeshMemberRole with the namespace info where knative routes created
+	smmr, err := r.smmrLister.ServiceMeshMemberRolls(smmrNamespace).Get(smmrName)
+	if err != nil {
+		return fmt.Errorf("failed to get SMMR in %q: %w", smmrNamespace, err)
+	}
+	newMembers, changed := appendIfAbsent(smmr.Spec.Members, ing.GetNamespace())
+	if changed {
+		existing := smmr.DeepCopy()
+		existing.Spec.Members = newMembers
+		if _, err := r.smmrClient.MaistraV1().ServiceMeshMemberRolls(existing.Namespace).Update(existing); err != nil {
+			// ref for substring https://github.com/Maistra/istio-operator/blob/maistra-1.0/pkg/controller/servicemesh/validation/memberroll.go#L95
+			if strings.Contains(err.Error(), "one or more members are already defined in another ServiceMeshMemberRoll") {
+				logger.Errorf("failed to update ServiceMeshMemberRole because namespace %s is already a member of another ServiceMeshMemberRoll", ing.GetNamespace())
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// appendIfAbsent append namespace to member if its not exist
+func appendIfAbsent(members []string, namespace string) ([]string, bool) {
+	for _, val := range members {
+		if val == namespace {
+			return members, false
+		}
+	}
+	return append(members, namespace), true
+}
+
+// removeIfPresent removes namespace from member if its exist
+func removeIfPresent(members []string, namespace string) ([]string, bool) {
+	for i, val := range members {
+		if val == namespace {
+			return append(members[:i], members[i+1:]...), true
+		}
+	}
+	return members, false
+}
+
+func (r *Reconciler) reconcileNetworkPolicy(ctx context.Context, ing *v1alpha1.Ingress, isDeletion bool) error {
+	desired := oresources.MakeNetworkPolicyAllowAll(ing.GetNamespace())
+
+	networkPolicies, err := r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.Namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Detect if the user has any NetworkPolicy objects in this namespace
+	for _, networkPolicy := range networkPolicies.Items {
+		// Don't treat the NetworkPolicy we create as user-created
+		if networkPolicy.Name == desired.Name {
+			continue
+		}
+
+		// Don't treat the NetworkPolicy owned by Service Mesh as user-created
+		if networkPolicy.Labels["maistra.io/owner"] != "" {
+			continue
+		}
+
+		// If the user has created NetworkPolicy objects in this
+		// namespace then assume they are managing NetworkPolicy and
+		// do not create or delete our own. If we previously created
+		// one and a user starts managing NetworkPolicy explicitly
+		// then this will allow them to delete ours without us
+		// automatically recreating it again.
+		return nil
+	}
+
+	if isDeletion {
+		return r.deleteNetworkPolicy(ctx, ing, desired)
+	}
+	return r.ensureNetworkPolicy(ctx, ing, desired)
+}
+
+func (r *Reconciler) ensureNetworkPolicy(ctx context.Context, ing *v1alpha1.Ingress, desired *networkingv1.NetworkPolicy) error {
+	logger := logging.FromContext(ctx)
+
+	networkPolicy, err := r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) {
+		if _, err := r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.GetNamespace()).Create(desired); err != nil {
+			logger.Errorf("Failed to create NetworkPolicy %q in namespace %q: %v", desired.Name, desired.Namespace, err)
+			return err
+		}
+		logger.Infof("Created NetworkPolicy %q in namespace %q", desired.Name, desired.Namespace)
+	} else if err != nil {
+		return err
+	} else if !equality.Semantic.DeepEqual(networkPolicy.Spec, desired.Spec) {
+		// Don't modify the informers copy
+		existing := networkPolicy.DeepCopy()
+		existing.Spec = desired.Spec
+		if _, err = r.GetKubeClient().NetworkingV1().NetworkPolicies(existing.GetNamespace()).Update(existing); err != nil {
+			logger.Errorf("Failed to update NetworkPolicy %q in namespace %q: %v", existing.Name, existing.Namespace, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reconciler) deleteNetworkPolicy(ctx context.Context, ing *v1alpha1.Ingress, desired *networkingv1.NetworkPolicy) error {
+	logger := logging.FromContext(ctx)
+
+	_, err := r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.Namespace).Get(desired.Name, metav1.GetOptions{})
+	if apierrs.IsNotFound(err) {
+		// Doesn't exist, so no need to try to delete it
+		return nil
+	} else if err != nil {
+		return err
+	} else {
+		logger.Infof("Deleting NetworkPolicy %q in namespace %q", desired.Name, desired.Namespace)
+		if err = r.GetKubeClient().NetworkingV1().NetworkPolicies(desired.GetNamespace()).Delete(desired.Name, &metav1.DeleteOptions{}); err != nil {
+			logger.Errorf("Failed to delete NetworkPolicy %q in namespace %q: %v", desired.Name, desired.Namespace, err)
+			return err
+		}
+		logger.Infof("Deleted NetworkPolicy %q in namespace %q", desired.Name, desired.Namespace)
+	}
+	return nil
 }

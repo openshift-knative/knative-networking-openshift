@@ -1,62 +1,68 @@
 diff --git a/vendor/knative.dev/serving/pkg/reconciler/testing/v1alpha1/factory.go b/vendor/knative.dev/serving/pkg/reconciler/testing/v1alpha1/factory.go
-index 0dbc4447..0af207dc 100644
+index 0dbc4447..92129722 100644
 --- a/vendor/knative.dev/serving/pkg/reconciler/testing/v1alpha1/factory.go
 +++ b/vendor/knative.dev/serving/pkg/reconciler/testing/v1alpha1/factory.go
-@@ -21,6 +21,7 @@ import (
+@@ -21,6 +21,8 @@ import (
  	"encoding/json"
  	"testing"
  
++	fakesmmrclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/injection/client/fake"
 +	fakerouteclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client/fake"
  	fakecachingclient "knative.dev/caching/pkg/client/injection/client/fake"
  	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
  	fakekubeclient "knative.dev/pkg/client/injection/kube/client/fake"
-@@ -74,6 +75,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
+@@ -74,6 +76,8 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
  			ls.NewScheme(), ToUnstructured(t, ls.NewScheme(), r.Objects)...)
  		ctx, cachingClient := fakecachingclient.With(ctx, ls.GetCachingObjects()...)
  		ctx, certManagerClient := fakecertmanagerclient.With(ctx, ls.GetCMCertificateObjects()...)
 +		ctx, routeClient := fakerouteclient.With(ctx, ls.GetOpenshiftObjects()...)
++		ctx, smmrClient := fakesmmrclient.With(ctx, ls.GetServiceMeshMemberRollObjects()...)
  		ctx = context.WithValue(ctx, TrackerKey, &rtesting.FakeTracker{})
  
  		// The dynamic client's support for patching is BS.  Implement it
-@@ -114,6 +116,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
+@@ -114,6 +118,8 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
  			dynamicClient.PrependReactor("*", "*", reactor)
  			cachingClient.PrependReactor("*", "*", reactor)
  			certManagerClient.PrependReactor("*", "*", reactor)
 +			routeClient.PrependReactor("*", "*", reactor)
++			smmrClient.PrependReactor("*", "*", reactor)
  		}
  
  		// Validate all Create operations through the serving client.
-@@ -126,7 +129,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
+@@ -126,7 +132,7 @@ func MakeFactory(ctor Ctor) rtesting.Factory {
  			return rtesting.ValidateUpdates(context.Background(), action)
  		})
  
 -		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient}
-+		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient, routeClient}
++		actionRecorderList := rtesting.ActionRecorderList{sharedClient, dynamicClient, client, kubeClient, cachingClient, certManagerClient, routeClient, smmrClient}
  		eventList := rtesting.EventList{Recorder: eventRecorder}
  
  		return c, actionRecorderList, eventList, statsReporter
 diff --git a/vendor/knative.dev/serving/pkg/reconciler/testing/v1alpha1/listers.go b/vendor/knative.dev/serving/pkg/reconciler/testing/v1alpha1/listers.go
-index 8c5a40dc..4e7057b2 100644
+index 8c5a40dc..2212cf21 100644
 --- a/vendor/knative.dev/serving/pkg/reconciler/testing/v1alpha1/listers.go
 +++ b/vendor/knative.dev/serving/pkg/reconciler/testing/v1alpha1/listers.go
-@@ -18,6 +18,8 @@ package v1alpha1
+@@ -18,6 +18,10 @@ package v1alpha1
  
  import (
  	certmanagerv1alpha1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1alpha1"
++	smmrv1 "github.com/maistra/istio-operator/pkg/apis/maistra/v1"
++	smmrv1listers "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/listers/maistra/v1"
 +	routev1 "github.com/openshift/api/route/v1"
 +	routev1listers "github.com/openshift/client-go/route/listers/route/v1"
  	appsv1 "k8s.io/api/apps/v1"
  	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
  	corev1 "k8s.io/api/core/v1"
-@@ -51,6 +53,7 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
+@@ -51,6 +55,8 @@ var clientSetSchemes = []func(*runtime.Scheme) error{
  	fakecachingclientset.AddToScheme,
  	certmanagerv1alpha1.AddToScheme,
  	autoscalingv2beta1.AddToScheme,
 +	routev1.AddToScheme,
++	smmrv1.AddToScheme,
  }
  
  type Listers struct {
-@@ -200,3 +203,11 @@ func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
+@@ -200,3 +206,19 @@ func (l *Listers) GetConfigMapLister() corev1listers.ConfigMapLister {
  func (l *Listers) GetNamespaceLister() corev1listers.NamespaceLister {
  	return corev1listers.NewNamespaceLister(l.IndexerFor(&corev1.Namespace{}))
  }
@@ -67,4 +73,12 @@ index 8c5a40dc..4e7057b2 100644
 +
 +func (l *Listers) GetOpenshiftObjects() []runtime.Object {
 +	return l.sorter.ObjectsForSchemeFunc(routev1.AddToScheme)
++}
++
++func (l *Listers) GetServiceMeshMemberRollLister() smmrv1listers.ServiceMeshMemberRollLister {
++	return smmrv1listers.NewServiceMeshMemberRollLister(l.IndexerFor(&smmrv1.ServiceMeshMemberRoll{}))
++}
++
++func (l *Listers) GetServiceMeshMemberRollObjects() []runtime.Object {
++	return l.sorter.ObjectsForSchemeFunc(smmrv1.AddToScheme)
 +}

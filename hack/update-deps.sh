@@ -23,4 +23,4 @@ dep ensure -v
 
 git apply hack/maistra-codegen.patch
 git apply hack/pkg-indexer.patch
-git apply hack/serving-listers.patch
+git apply hack/listers.patch

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	// Inject our fakes
+	fakesmmrclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/injection/client/fake"
 	fakerouteclient "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/client/fake"
 	fakesharedclient "knative.dev/pkg/client/injection/client/fake"
 	_ "knative.dev/pkg/client/injection/informers/istio/v1alpha3/gateway/fake"
@@ -69,6 +70,7 @@ import (
 	. "knative.dev/pkg/reconciler/testing"
 	. "knative.dev/serving/pkg/reconciler/testing/v1alpha1"
 
+	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/maistra/injection/informers/maistra/v1/servicemeshmemberroll/fake"
 	_ "github.com/openshift-knative/knative-serving-networking-openshift/pkg/client/openshift/injection/informers/route/v1/route/fake"
 	oresources "github.com/openshift-knative/knative-serving-networking-openshift/pkg/reconciler/ingress/resources"
 )
@@ -221,6 +223,8 @@ func TestReconcile(t *testing.T) {
 		Objects: []runtime.Object{
 			ingress("no-virtualservice-yet", 1234),
 			route(ingress("no-virtualservice-yet", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeMeshVirtualService(insertProbe(ingress("no-virtualservice-yet", 1234))),
@@ -274,6 +278,8 @@ func TestReconcile(t *testing.T) {
 				},
 				Spec: v1alpha3.VirtualServiceSpec{},
 			},
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeMeshVirtualService(insertProbe(ingress("reconcile-failed", 1234))),
@@ -341,6 +347,8 @@ func TestReconcile(t *testing.T) {
 				Spec: v1alpha3.VirtualServiceSpec{},
 			},
 			route(ingress("reconcile-virtualservice", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantUpdates: []clientgotesting.UpdateActionImpl{{
 			Object: resources.MakeIngressVirtualService(insertProbe(ingress("reconcile-virtualservice", 1234)),
@@ -378,6 +386,8 @@ func TestReconcile(t *testing.T) {
 			resources.MakeIngressVirtualService(insertProbe(ingress("route-tests", 1234)),
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 			route(ingress("route-tests", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantPatches: []clientgotesting.PatchActionImpl{
 			patchAddFinalizerAction("route-tests", routeFinalizer),
@@ -393,6 +403,8 @@ func TestReconcile(t *testing.T) {
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/knative-ingress-gateway"}, nil)),
 			route(ingress("route-tests", 1234), "domain.com"),
 			route(ingress("route-tests", 1234), "domain2.com"),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantDeletes: []clientgotesting.DeleteActionImpl{{
 			ActionImpl: clientgotesting.ActionImpl{
@@ -414,6 +426,8 @@ func TestReconcile(t *testing.T) {
 				makeGatewayMap([]string{"knative-testing/knative-test-gateway", "knative-testing/" + networking.KnativeIngressGateway}, nil)),
 			ingressWithStatus("route-tests", 1234, ingressReady),
 			route(ingress("route-tests", 1234), "domain.com", withNamespace("wrong-ns")),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			oresources.MakeRoute(*ingress("route-tests", 1234), "domain.com", types.NamespacedName{
@@ -478,6 +492,8 @@ func TestReconcile(t *testing.T) {
 			gatewayLister:        listers.GetGatewayLister(),
 			routeLister:          listers.GetOpenshiftRouteLister(),
 			routeClient:          fakerouteclient.Get(ctx),
+			smmrLister:           listers.GetServiceMeshMemberRollLister(),
+			smmrClient:           fakesmmrclient.Get(ctx),
 			finalizer:            ingressFinalizer,
 			rfinalizer:           routeFinalizer,
 			configStore: &testConfigStore{
@@ -503,6 +519,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 			originSecret("istio-system", "secret0"),
 			route(ingressWithTLS("reconciling-ingress", 1234, ingressTLS), "domain.com", withTo("istio-ingressgateway")),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
@@ -570,6 +588,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			ingressWithTLS("reconciling-ingress", 1234, ingressTLS),
 			originSecret("istio-system", "secret0"),
 			route(ingress("no-virtualservice-yet", 1234), "domain.com"),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			resources.MakeMeshVirtualService(insertProbe(ingressWithTLS("reconciling-ingress", 1234, ingressTLS))),
@@ -618,6 +638,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 		Objects: []runtime.Object{
 			ingressWithFinalizers("reconciling-ingress", 1234, ingressTLS, []string{ingressFinalizer}),
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []v1alpha3.Server{irrelevantServer, ingressTLSServer}),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
@@ -644,6 +666,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// from the namespace (`istio-system`) of Istio gateway service.
 			originSecret("knative-serving", "secret0"),
 			route(ingressWithTLS("reconciling-ingress", 1234, ingressTLSWithSecretNamespace("knative-serving")), "domain.com", withTo("istio-ingressgateway")),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
@@ -740,6 +764,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 					"wrong_data": []byte("wrongdata"),
 				},
 			},
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
@@ -823,6 +849,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			// No Gateway servers match the given TLS of Ingress.
 			gateway(networking.KnativeIngressGateway, system.Namespace(), []v1alpha3.Server{irrelevantServer}),
 			originSecret("istio-system", "secret0"),
+			smmr([]string{"test-ns"}),
+			oresources.MakeNetworkPolicyAllowAll("test-ns"),
 		},
 		WantCreates: []runtime.Object{
 			// The creation of gateways are triggered when setting up the test.
@@ -891,6 +919,8 @@ func TestReconcile_EnableAutoTLS(t *testing.T) {
 			secretLister:         listers.GetSecretLister(),
 			routeLister:          listers.GetOpenshiftRouteLister(),
 			routeClient:          fakerouteclient.Get(ctx),
+			smmrLister:           listers.GetServiceMeshMemberRollLister(),
+			smmrClient:           fakesmmrclient.Get(ctx),
 			tracker:              &NullTracker{},
 			finalizer:            ingressFinalizer,
 			rfinalizer:           routeFinalizer,
@@ -1165,6 +1195,11 @@ func TestGlobalResyncOnUpdateGatewayConfigMap(t *testing.T) {
 	grp := errgroup.Group{}
 
 	servingClient := fakeservingclient.Get(ctx)
+	smmrClient := fakesmmrclient.Get(ctx)
+	kubeClient := fakekubeclient.Get(ctx)
+
+	smmrClient.MaistraV1().ServiceMeshMemberRolls("knative-serving-ingress").Create(smmr([]string{"knative-serving-ingress"}))
+	kubeClient.NetworkingV1().NetworkPolicies("test-ns").Create(oresources.MakeNetworkPolicyAllowAll("test-ns"))
 
 	h := NewHooks()
 
@@ -1260,6 +1295,12 @@ func TestGlobalResyncOnUpdateNetwork(t *testing.T) {
 	grp := errgroup.Group{}
 
 	sharedClient := fakesharedclient.Get(ctx)
+
+	smmrClient := fakesmmrclient.Get(ctx)
+	kubeClient := fakekubeclient.Get(ctx)
+
+	smmrClient.MaistraV1().ServiceMeshMemberRolls("knative-serving-ingress").Create(smmr([]string{"knative-serving-ingress"}))
+	kubeClient.NetworkingV1().NetworkPolicies("test-ns").Create(oresources.MakeNetworkPolicyAllowAll("test-ns"))
 
 	h := NewHooks()
 
